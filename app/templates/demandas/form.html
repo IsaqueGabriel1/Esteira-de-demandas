@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import campo %}
+{% block titulo %}{{ 'Editar demanda #' ~ demanda.id if demanda else 'Nova demanda' }}{% endblock %}
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-xl-9">
+    <h1 class="h4 mb-3">{{ 'Editar demanda #' ~ demanda.id if demanda else 'Nova demanda' }}</h1>
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+      <div class="card mb-3">
+        <div class="card-body">
+          {{ campo(form.eixo_id) }}
+          {{ campo(form.acao) }}
+          {{ campo(form.produto) }}
+          <div class="row">
+            {{ campo(form.inicio, 'col-md-6') }}
+            {{ campo(form.termino, 'col-md-6') }}
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header bg-white"><i class="bi bi-people"></i> Responsáveis</div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              {{ campo(form.atribuido_id) }}
+              {% if current_user.perfil == Perfil.CHEFE %}
+              <div class="form-text mt-n2 mb-3">Como Chefe de Divisão, você só pode atribuir a usuários com perfil Usuário Comum.</div>
+              {% endif %}
+              {% if demanda and demanda.atribuido %}
+              <div class="form-text mt-n2 mb-3">Trocar o responsável reinicia o aceite (status “Aguardando aceite”).</div>
+              {% endif %}
+            </div>
+            <div class="col-md-6">{{ campo(form.apoio_ids) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header bg-white d-flex justify-content-between">
+          <span><i class="bi bi-bar-chart"></i> Priorização (Matriz GUT)</span>
+          <span class="small">P = G × U × T = <strong id="p-calculado">—</strong></span>
+        </div>
+        <div class="card-body">
+          <p class="small text-muted">Opcional. Sem os três pesos, a demanda aparece como “Aguardando priorização”.</p>
+          <div class="row">
+            {% for nome in ['gravidade', 'urgencia', 'tendencia'] %}
+            {% set f = form[nome] %}
+            <div class="col-md-4 mb-2">
+              {{ f.label(class="form-label") }}
+              <select name="{{ f.name }}" id="{{ f.id }}" class="form-select peso-gut {{ 'is-invalid' if f.errors }}">
+                <option value="0">—</option>
+                {% for valor, descricao in ROTULOS_PESO[nome].items() %}
+                <option value="{{ valor }}" {{ 'selected' if f.data == valor }}>{{ valor }} – {{ descricao }}</option>
+                {% endfor %}
+              </select>
+              {% for erro in f.errors %}<div class="invalid-feedback d-block">{{ erro }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">{{ 'Salvar alterações' if demanda else 'Criar demanda' }}</button>
+        <a href="{{ url_for('demandas.detalhe', demanda_id=demanda.id) if demanda else url_for('demandas.quadro') }}" class="btn btn-link">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/form_demanda.js') }}"></script>
+{% endblock %}

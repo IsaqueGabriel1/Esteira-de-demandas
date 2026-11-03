@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import badge_prioridade, badge_eixo, prazo %}
+{% block titulo %}Indicadores{% endblock %}
+{% block conteudo %}
+<h1 class="h4 mb-3">Indicadores {% if not permissoes.pode_ver_todas(current_user.perfil) %}<small class="text-muted fs-6">(das suas demandas)</small>{% endif %}</h1>
+
+{% set t = dados.totais %}
+<div class="row g-3 mb-3">
+  {% for rotulo, valor, icone, cor in [
+      ('Ativas', t.ativas, 'bi-collection', 'primary'),
+      ('Atrasadas', t.atrasadas, 'bi-alarm', 'danger'),
+      ('Aguardando aceite', t.aguardando_aceite, 'bi-hourglass-split', 'warning'),
+      ('Em revisão', t.em_revisao, 'bi-patch-question', 'info'),
+      ('Sem GUT', t.sem_gut, 'bi-question-diamond', 'secondary'),
+      ('Concluídas', t.concluidas, 'bi-patch-check', 'success')] %}
+  <div class="col-6 col-md-4 col-xl-2">
+    <div class="card indicador h-100">
+      <div class="card-body">
+        <div class="text-{{ cor }} fs-4"><i class="bi {{ icone }}"></i></div>
+        <div class="fs-3 fw-semibold">{{ valor }}</div>
+        <div class="small text-muted">{{ rotulo }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white">Demandas ativas por eixo</div><div class="card-body"><canvas id="g-eixo" height="220"></canvas></div></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white">Demandas por status</div><div class="card-body"><canvas id="g-status" height="220"></canvas></div></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white">Demandas ativas por responsável</div><div class="card-body"><canvas id="g-responsavel" height="220"></canvas></div></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white">Demandas ativas por faixa de prioridade</div><div class="card-body"><canvas id="g-faixa" height="220"></canvas></div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header bg-white"><i class="bi bi-sort-numeric-down-alt"></i> Ranking de prioridade (top 10)</div>
+      <ul class="list-group list-group-flush">
+        {% for d in dados.ranking %}
+        <a href="{{ url_for('demandas.detalhe', demanda_id=d.id) }}" class="list-group-item list-group-item-action d-flex gap-2 align-items-center">
+          <span class="text-muted small">{{ loop.index }}.</span>{{ badge_eixo(d.eixo) }}
+          <span class="flex-grow-1 text-truncate">{{ d.acao }}</span>{{ badge_prioridade(d) }}
+        </a>
+        {% else %}<li class="list-group-item text-muted small">Nenhuma demanda priorizada.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header bg-white text-danger"><i class="bi bi-alarm"></i> Atrasadas</div>
+      <ul class="list-group list-group-flush">
+        {% for d in dados.atrasadas %}
+        <a href="{{ url_for('demandas.detalhe', demanda_id=d.id) }}" class="list-group-item list-group-item-action d-flex gap-2 align-items-center">
+          {{ badge_eixo(d.eixo) }}<span class="flex-grow-1 text-truncate">{{ d.acao }}</span>
+          <span class="small text-muted">{{ d.atribuido.nome if d.atribuido else 'Sem responsável' }}</span>
+          <span class="small text-danger text-nowrap">{{ d.termino|data_br }}</span>
+        </a>
+        {% else %}<li class="list-group-item text-muted small">Nenhuma demanda atrasada.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}"></script>
+<script id="dados-graficos" type="application/json">{{ dados.graficos|tojson }}</script>
+<script src="{{ url_for('static', filename='js/indicadores.js') }}"></script>
+{% endblock %}

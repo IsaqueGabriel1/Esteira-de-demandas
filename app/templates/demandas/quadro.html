@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import card_demanda %}
+{% block titulo %}Quadro{% endblock %}
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Quadro de demandas</h1>
+  <span class="small text-muted"><i class="bi bi-info-circle"></i> Arraste para aceitar, enviar para revisão ou aprovar. Demais ações ficam na tela da demanda.</span>
+</div>
+
+{% set mostrar_status = false %}
+{% include "partials/_filtros.html" %}
+
+<div class="quadro">
+  {% for status, demandas in colunas.items() %}
+  <section class="coluna coluna-{{ status|lower }}">
+    <header class="coluna-cabecalho">
+      <span>{{ Status.rotulo(status) }}</span>
+      <span class="badge rounded-pill bg-light text-dark contador">{{ demandas|length }}</span>
+    </header>
+    {% if status == Status.CONCLUIDA %}<div class="coluna-nota">Últimos 30 dias</div>{% endif %}
+    <div class="coluna-cards" data-status="{{ status }}">
+      {% for demanda in demandas %}
+        {{ card_demanda(demanda) }}
+      {% else %}
+        <div class="coluna-vazia">Nenhuma demanda</div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/sortable/Sortable.min.js') }}"></script>
+<script>
+  window.URL_MOVER = "{{ url_for('demandas.mover', demanda_id=0) }}";
+</script>
+<script src="{{ url_for('static', filename='js/quadro.js') }}"></script>
+{% endblock %}

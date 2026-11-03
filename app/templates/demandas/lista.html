@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import badge_prioridade, badge_status, badge_eixo, prazo %}
+{% block titulo %}Demandas{% endblock %}
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Demandas <span class="text-muted fs-6">({{ demandas|length }})</span></h1>
+  {% set args = request.args.to_dict() %}{% set _ = args.update({'formato': 'csv'}) %}
+  <a href="{{ url_for('demandas.lista', **args) }}" class="btn btn-sm btn-outline-success">
+    <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV (Excel)
+  </a>
+</div>
+
+{% set mostrar_status = true %}
+{% include "partials/_filtros.html" %}
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 tabela-demandas">
+      <thead class="table-light">
+        <tr>
+          <th>#</th><th>Eixo</th><th>Ação</th><th>Produto / Entrega</th><th>Status</th>
+          <th>Responsável</th><th>Prazo</th><th class="text-center">G·U·T</th><th>Prioridade</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in demandas %}
+        <tr class="{{ 'table-danger-sutil' if d.atrasada }}" onclick="window.location='{{ url_for('demandas.detalhe', demanda_id=d.id) }}'" role="button">
+          <td class="text-muted">{{ d.id }}</td>
+          <td>{{ badge_eixo(d.eixo) }}</td>
+          <td class="celula-texto">{{ d.acao|truncate(90) }}</td>
+          <td class="celula-texto text-muted">{{ d.produto|truncate(70) }}</td>
+          <td>{{ badge_status(d) }}</td>
+          <td>{{ d.atribuido.nome if d.atribuido else '—' }}</td>
+          <td class="text-nowrap small">{{ prazo(d) }}</td>
+          <td class="text-center text-muted small text-nowrap">{% if d.tem_gut %}{{ d.gravidade }}·{{ d.urgencia }}·{{ d.tendencia }}{% else %}—{% endif %}</td>
+          <td>{{ badge_prioridade(d) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma demanda encontrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

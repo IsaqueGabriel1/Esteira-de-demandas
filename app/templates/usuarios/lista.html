@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Usuários{% endblock %}
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Usuários</h1>
+  <a href="{{ url_for('usuarios.novo') }}" class="btn btn-primary btn-sm"><i class="bi bi-person-plus"></i> Novo usuário</a>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light"><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Situação</th><th></th></tr></thead>
+      <tbody>
+        {% for u in usuarios %}
+        <tr class="{{ 'text-muted' if not u.ativo }}">
+          <td><span class="avatar me-2">{{ u.iniciais }}</span>{{ u.nome }}</td>
+          <td>{{ u.email }}</td>
+          <td><span class="badge perfil perfil-{{ u.perfil|lower }}">{{ u.perfil_rotulo }}</span></td>
+          <td>{% if u.ativo %}<span class="badge bg-success-subtle text-success">Ativo</span>{% else %}<span class="badge bg-secondary-subtle text-secondary">Inativo</span>{% endif %}</td>
+          <td class="text-end"><a href="{{ url_for('usuarios.editar', usuario_id=u.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

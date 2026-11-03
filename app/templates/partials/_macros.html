@@ -1,0 +1,75 @@
+{% macro badge_prioridade(demanda) -%}
+  {%- set rotulo, css = demanda.faixa -%}
+  {%- if demanda.tem_gut -%}
+  <span class="badge prioridade prioridade-{{ css }}" title="G={{ demanda.gravidade }} × U={{ demanda.urgencia }} × T={{ demanda.tendencia }} · Prioridade {{ rotulo }}">P {{ demanda.prioridade }}</span>
+  {%- else -%}
+  <span class="badge prioridade prioridade-pendente" title="Sem pesos GUT">Aguardando priorização</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro badge_status(demanda) -%}
+  <span class="badge status status-{{ demanda.status|lower }}">{{ demanda.status_rotulo }}</span>
+{%- endmacro %}
+
+{% macro badge_eixo(eixo) -%}
+  <span class="badge eixo eixo-{{ eixo.numero }}" title="{{ eixo.rotulo }}">{{ eixo.sigla }}</span>
+{%- endmacro %}
+
+{% macro prazo(demanda) -%}
+  {%- if demanda.termino -%}
+  <span class="{{ 'text-danger fw-semibold' if demanda.atrasada else 'text-muted' }}">
+    <i class="bi bi-calendar-event"></i> {{ demanda.termino|data_br }}
+    {%- if demanda.atrasada %} <span class="badge bg-danger">Atrasada</span>{% endif %}
+  </span>
+  {%- else -%}
+  <span class="text-muted"><i class="bi bi-calendar"></i> Sem prazo</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro avatar(usuario, classe='') -%}
+  {%- if usuario -%}
+  <span class="avatar {{ classe }}" title="{{ usuario.nome }}">{{ usuario.iniciais }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro card_demanda(demanda, arrastavel=false) %}
+<div class="card card-demanda {{ 'atrasada' if demanda.atrasada }} faixa-{{ demanda.faixa[1] }}" data-id="{{ demanda.id }}" data-status="{{ demanda.status }}">
+  <div class="card-body p-2">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <div class="d-flex gap-1 align-items-center">
+        {{ badge_eixo(demanda.eixo) }}
+        <a href="{{ url_for('demandas.detalhe', demanda_id=demanda.id) }}" class="small text-muted text-decoration-none">#{{ demanda.id }}</a>
+      </div>
+      {{ badge_prioridade(demanda) }}
+    </div>
+    <a href="{{ url_for('demandas.detalhe', demanda_id=demanda.id) }}" class="text-reset text-decoration-none">
+      <div class="card-acao">{{ demanda.acao|truncate(110) }}</div>
+    </a>
+    {% if demanda.status == Status.RECUSADA and demanda.justificativa_recusa %}
+    <div class="small text-danger mt-1"><i class="bi bi-x-circle"></i> {{ demanda.recusado_por.nome if demanda.recusado_por }}: “{{ demanda.justificativa_recusa|truncate(80) }}”</div>
+    {% endif %}
+    <div class="d-flex justify-content-between align-items-center mt-2 small">
+      {{ prazo(demanda) }}
+      <div class="d-flex align-items-center">
+        {{ avatar(demanda.atribuido) }}
+        {% for apoio in demanda.apoios[:2] %}{{ avatar(apoio, 'avatar-apoio') }}{% endfor %}
+        {% if demanda.apoios|length > 2 %}<span class="avatar avatar-apoio">+{{ demanda.apoios|length - 2 }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro campo(field, classe='') %}
+<div class="mb-3 {{ classe }}">
+  {{ field.label(class="form-label") }}
+  {% if field.type in ('SelectField', 'SelectMultipleField') %}
+    {{ field(class="form-select" + (" is-invalid" if field.errors else "")) }}
+  {% elif field.type == 'BooleanField' %}
+    <div class="form-check">{{ field(class="form-check-input") }}</div>
+  {% else %}
+    {{ field(class="form-control" + (" is-invalid" if field.errors else "")) }}
+  {% endif %}
+  {% for erro in field.errors %}<div class="invalid-feedback d-block">{{ erro }}</div>{% endfor %}
+</div>
+{% endmacro %}

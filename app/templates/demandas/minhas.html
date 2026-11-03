@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import card_demanda %}
+{% block titulo %}Minhas demandas{% endblock %}
+{% block conteudo %}
+<h1 class="h4 mb-3">Minhas demandas</h1>
+
+{% set secoes = [
+  ('pendentes_aceite', 'Aguardando meu aceite', 'bi-hourglass-split', 'Aceite ou recuse (com justificativa) as demandas atribuídas a você.'),
+  ('revisao', 'Aguardando minha revisão', 'bi-patch-question', 'Entregas enviadas para aprovação.'),
+  ('recusadas', 'Recusadas — precisam ser reatribuídas', 'bi-arrow-repeat', 'Demandas que você atribuiu e foram recusadas.'),
+  ('atribuidas', 'Atribuídas a mim', 'bi-person-workspace', ''),
+  ('apoio', 'Em que sou apoio', 'bi-people', ''),
+] %}
+
+<div class="row g-3">
+  {% for chave, titulo, icone, ajuda in secoes if chave in grupos %}
+  <div class="col-lg-6 col-xxl-4">
+    <section class="card h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span><i class="bi {{ icone }}"></i> {{ titulo }}</span>
+        <span class="badge rounded-pill {{ 'bg-primary' if grupos[chave] else 'bg-light text-dark' }}">{{ grupos[chave]|length }}</span>
+      </div>
+      <div class="card-body lista-cards">
+        {% if ajuda and grupos[chave] %}<p class="small text-muted">{{ ajuda }}</p>{% endif %}
+        {% for demanda in grupos[chave] %}
+          {{ card_demanda(demanda) }}
+        {% else %}
+          <p class="text-muted small mb-0">Nada por aqui.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

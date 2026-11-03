@@ -1,0 +1,3 @@
+Migrações do banco (Alembic via Flask-Migrate).
+Gerar nova migração após alterar os models:  flask db migrate -m "descricao"
+Aplicar:                                       flask db upgrade

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block titulo %}Esteira de Demandas{% endblock %} · DIO</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/select2/select2.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/select2/select2-bootstrap-5-theme.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+{% if current_user.is_authenticated %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-primario">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-semibold" href="{{ url_for('demandas.quadro') }}">
+      <i class="bi bi-kanban"></i> Esteira de Demandas
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu" aria-label="Abrir menu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="menu">
+      {% set ep = request.endpoint or '' %}
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'demandas.quadro' }}" href="{{ url_for('demandas.quadro') }}"><i class="bi bi-kanban"></i> Quadro</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'demandas.lista' }}" href="{{ url_for('demandas.lista') }}"><i class="bi bi-list-ul"></i> Demandas</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'demandas.minhas' }}" href="{{ url_for('demandas.minhas') }}"><i class="bi bi-person-check"></i> Minhas demandas</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if ep.startswith('indicadores') }}" href="{{ url_for('indicadores.painel') }}"><i class="bi bi-graph-up"></i> Indicadores</a></li>
+        {% if permissoes.pode_gerenciar_usuarios(current_user.perfil) %}
+        <li class="nav-item"><a class="nav-link {{ 'active' if ep.startswith('usuarios') }}" href="{{ url_for('usuarios.lista') }}"><i class="bi bi-people"></i> Usuários</a></li>
+        {% endif %}
+      </ul>
+      {% if permissoes.pode_criar_demanda(current_user.perfil) %}
+      <a href="{{ url_for('demandas.nova') }}" class="btn btn-light btn-sm me-3"><i class="bi bi-plus-lg"></i> Nova demanda</a>
+      {% endif %}
+      <div class="dropdown">
+        <a class="nav-link dropdown-toggle text-white d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
+          <span class="avatar avatar-claro">{{ current_user.iniciais }}</span>
+          <span class="d-none d-xl-inline">{{ current_user.nome }}</span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><span class="dropdown-item-text small text-muted">{{ current_user.perfil_rotulo }}</span></li>
+          <li><a class="dropdown-item" href="{{ url_for('auth.minha_senha') }}"><i class="bi bi-key"></i> Alterar senha</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li>
+            <form method="post" action="{{ url_for('auth.logout') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="dropdown-item" type="submit"><i class="bi bi-box-arrow-right"></i> Sair</button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</nav>
+{% endif %}
+
+<main class="{% block container_class %}container-fluid px-4{% endblock %} py-4">
+  {% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% for categoria, mensagem in mensagens %}
+    <div class="alert alert-{{ categoria if categoria != 'message' else 'info' }} alert-dismissible fade show" role="alert">
+      {{ mensagem }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+    </div>
+    {% endfor %}
+  {% endwith %}
+  {% block conteudo %}{% endblock %}
+</main>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+
+<script src="{{ url_for('static', filename='vendor/jquery/jquery.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/select2/select2.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/select2/i18n/pt-BR.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import campo %}
+{% block titulo %}{{ 'Editar usuário' if usuario else 'Novo usuário' }}{% endblock %}
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-md-8 col-lg-6">
+    <h1 class="h4 mb-3">{{ 'Editar usuário' if usuario else 'Novo usuário' }}</h1>
+    <div class="card"><div class="card-body">
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+        {{ campo(form.nome) }}
+        {{ campo(form.email) }}
+        {{ campo(form.perfil) }}
+        <div class="mb-3">
+          {{ form.senha.label(class="form-label", text=('Nova senha (deixe em branco para manter)' if usuario else 'Senha inicial')) }}
+          {{ form.senha(class="form-control" + (" is-invalid" if form.senha.errors else ""), autocomplete="new-password") }}
+          {% for erro in form.senha.errors %}<div class="invalid-feedback d-block">{{ erro }}</div>{% endfor %}
+          <div class="form-text">Mínimo de 8 caracteres.</div>
+        </div>
+        {% if usuario %}
+        <div class="form-check form-switch mb-3">
+          {{ form.ativo(class="form-check-input") }} {{ form.ativo.label(class="form-check-label") }}
+        </div>
+        {% else %}
+        <input type="hidden" name="ativo" value="y">
+        {% endif %}
+        <button class="btn btn-primary">Salvar</button>
+        <a href="{{ url_for('usuarios.lista') }}" class="btn btn-link">Cancelar</a>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

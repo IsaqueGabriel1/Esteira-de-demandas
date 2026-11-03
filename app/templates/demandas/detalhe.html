@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import badge_prioridade, badge_status, badge_eixo, prazo, avatar %}
+{% block titulo %}Demanda #{{ demanda.id }}{% endblock %}
+{% block conteudo %}
+<nav class="small mb-2"><a href="{{ url_for('demandas.quadro') }}" class="text-decoration-none"><i class="bi bi-arrow-left"></i> Voltar ao quadro</a></nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <div class="d-flex gap-2 align-items-center mb-1">
+      <span class="text-muted">#{{ demanda.id }}</span> {{ badge_eixo(demanda.eixo) }} {{ badge_status(demanda) }} {{ badge_prioridade(demanda) }}
+      {% if demanda.atrasada %}<span class="badge bg-danger">Atrasada</span>{% endif %}
+    </div>
+    <h1 class="h5 mb-0 text-muted fw-normal">{{ demanda.eixo.rotulo }}</h1>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2">
+    {% if Acao.ACEITAR in acoes %}
+    <form method="post" action="{{ url_for('demandas.executar_acao', demanda_id=demanda.id, acao=Acao.ACEITAR) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-success"><i class="bi bi-check-lg"></i> Aceitar</button>
+    </form>
+    {% endif %}
+    {% if Acao.RECUSAR in acoes %}
+    <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modal-recusar"><i class="bi bi-x-lg"></i> Recusar</button>
+    {% endif %}
+    {% if Acao.ENVIAR_REVISAO in acoes %}
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-enviar_revisao"><i class="bi bi-send"></i> Enviar para revisão</button>
+    {% endif %}
+    {% if Acao.APROVAR in acoes %}
+    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modal-aprovar"><i class="bi bi-patch-check"></i> Aprovar entrega</button>
+    {% endif %}
+    {% if Acao.DEVOLVER in acoes %}
+    <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modal-devolver"><i class="bi bi-arrow-counterclockwise"></i> Devolver</button>
+    {% endif %}
+    {% if Acao.ATRIBUIR in acoes %}
+    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-atribuir"><i class="bi bi-person-plus"></i> {{ 'Reatribuir' if demanda.atribuido else 'Atribuir' }}</button>
+    {% endif %}
+    {% if permissoes.pode_editar_demanda(current_user.perfil) and not demanda.finalizada %}
+    <a href="{{ url_for('demandas.editar', demanda_id=demanda.id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
+    {% endif %}
+    {% if Acao.CANCELAR in acoes %}
+    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modal-cancelar"><i class="bi bi-slash-circle"></i> Cancelar</button>
+    {% endif %}
+  </div>
+</div>
+
+{% if demanda.status == Status.RECUSADA and demanda.justificativa_recusa %}
+<div class="alert alert-danger">
+  <strong><i class="bi bi-x-circle"></i> Recusada por {{ demanda.recusado_por.nome if demanda.recusado_por else '—' }}.</strong>
+  Justificativa: {{ demanda.justificativa_recusa }}
+  {% if Acao.ATRIBUIR in acoes %}<div class="small mt-1">Reatribua a demanda para outro responsável.</div>{% endif %}
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-muted small">Ação</h2>
+        <p class="texto-longo">{{ demanda.acao }}</p>
+        <h2 class="h6 text-uppercase text-muted small mt-3">Produto / Entrega</h2>
+        <p class="texto-longo mb-0">{{ demanda.produto }}</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header bg-white"><i class="bi bi-clock-history"></i> Histórico</div>
+      <ul class="list-group list-group-flush historico">
+        {% for evento in demanda.historico %}
+        <li class="list-group-item">
+          <div class="d-flex gap-3">
+            <i class="bi {{ evento.icone }} historico-icone tipo-{{ evento.tipo|lower }}"></i>
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between flex-wrap">
+                <strong class="small">{{ evento.tipo_rotulo }}</strong>
+                <span class="small text-muted">{{ evento.usuario.nome }} · {{ evento.criado_em|data_hora_br }}</span>
+              </div>
+              <div class="small">{{ evento.descricao }}</div>
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-body">
+        <dl class="mb-0 detalhes">
+          <dt>Responsável</dt>
+          <dd>{% if demanda.atribuido %}{{ avatar(demanda.atribuido) }} {{ demanda.atribuido.nome }}{% else %}<span class="text-muted">Ninguém atribuído</span>{% endif %}</dd>
+          {% if demanda.atribuido_por %}<dt>Atribuída por</dt><dd>{{ demanda.atribuido_por.nome }}</dd>{% endif %}
+          <dt>Usuários de apoio</dt>
+          <dd>
+            {% for apoio in demanda.apoios %}<div>{{ avatar(apoio, 'avatar-apoio') }} {{ apoio.nome }}</div>{% else %}<span class="text-muted">Nenhum</span>{% endfor %}
+          </dd>
+          <dt>Prazo</dt>
+          <dd>{{ demanda.inicio|data_br }} até {{ prazo(demanda) }}</dd>
+          <dt>Criada por</dt>
+          <dd>{{ demanda.criado_por.nome }} em {{ demanda.criado_em|data_br }}</dd>
+          {% if demanda.concluido_em %}<dt>Concluída em</dt><dd>{{ demanda.concluido_em|data_br }}</dd>{% endif %}
+        </dl>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-bar-chart"></i> Matriz GUT</span>{{ badge_prioridade(demanda) }}
+      </div>
+      <div class="card-body">
+        {% if permissoes.pode_definir_gut(current_user.perfil) and not demanda.finalizada %}
+        <form method="post" action="{{ url_for('demandas.definir_gut', demanda_id=demanda.id) }}" id="form-gut">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% for campo, rotulo in [('gravidade', 'Gravidade (G)'), ('urgencia', 'Urgência (U)'), ('tendencia', 'Tendência (T)')] %}
+          <div class="mb-2">
+            <label class="form-label small mb-0">{{ rotulo }}</label>
+            <select name="{{ campo }}" class="form-select form-select-sm peso-gut" required>
+              <option value="">—</option>
+              {% for valor, descricao in ROTULOS_PESO[campo].items() %}
+              <option value="{{ valor }}" {{ 'selected' if demanda[campo] == valor }}>{{ valor }} – {{ descricao }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endfor %}
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <span class="small">P = G × U × T = <strong id="p-calculado">{{ demanda.prioridade or '—' }}</strong></span>
+            <button class="btn btn-sm btn-primary">Salvar pesos</button>
+          </div>
+        </form>
+        {% elif demanda.tem_gut %}
+        <table class="table table-sm mb-0">
+          <tr><td>Gravidade</td><td class="text-end">{{ demanda.gravidade }}</td></tr>
+          <tr><td>Urgência</td><td class="text-end">{{ demanda.urgencia }}</td></tr>
+          <tr><td>Tendência</td><td class="text-end">{{ demanda.tendencia }}</td></tr>
+          <tr class="fw-semibold"><td>Prioridade (P)</td><td class="text-end">{{ demanda.prioridade }}</td></tr>
+        </table>
+        {% else %}
+        <p class="text-muted small mb-0">A demanda ainda não foi priorizada pelo Gerente ou Chefe de Divisão.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ---------------- Modais de ação ---------------- #}
+{% macro modal(acao, titulo, rotulo_texto, botao, classe_botao, obrigatorio=true, extra='') %}
+<div class="modal fade" id="modal-{{ acao }}" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" action="{{ url_for('demandas.executar_acao', demanda_id=demanda.id, acao=acao) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-header"><h5 class="modal-title">{{ titulo }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        {{ extra|safe }}
+        {% if rotulo_texto %}
+        <label class="form-label">{{ rotulo_texto }}{% if obrigatorio %} <span class="text-danger">*</span>{% endif %}</label>
+        <textarea name="texto" class="form-control" rows="4" {{ 'required minlength=10' if obrigatorio }}></textarea>
+        {% if obrigatorio %}<div class="form-text">Mínimo de 10 caracteres.</div>{% endif %}
+        {% endif %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link" data-bs-dismiss="modal">Voltar</button>
+        <button class="btn {{ classe_botao }}">{{ botao }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endmacro %}
+
+{% if Acao.RECUSAR in acoes %}{{ modal(Acao.RECUSAR, 'Recusar demanda', 'Justificativa da recusa', 'Recusar', 'btn-danger') }}{% endif %}
+{% if Acao.ENVIAR_REVISAO in acoes %}{{ modal(Acao.ENVIAR_REVISAO, 'Enviar para revisão', 'Comentário sobre a entrega (opcional)', 'Enviar', 'btn-primary', obrigatorio=false) }}{% endif %}
+{% if Acao.APROVAR in acoes %}{{ modal(Acao.APROVAR, 'Aprovar entrega', 'Comentário (opcional)', 'Aprovar e concluir', 'btn-success', obrigatorio=false) }}{% endif %}
+{% if Acao.DEVOLVER in acoes %}{{ modal(Acao.DEVOLVER, 'Devolver para ajustes', 'O que precisa ser ajustado?', 'Devolver', 'btn-warning') }}{% endif %}
+{% if Acao.CANCELAR in acoes %}{{ modal(Acao.CANCELAR, 'Cancelar demanda', 'Motivo do cancelamento', 'Cancelar demanda', 'btn-danger') }}{% endif %}
+
+{% if Acao.ATRIBUIR in acoes %}
+<div class="modal fade" id="modal-atribuir" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" action="{{ url_for('demandas.executar_acao', demanda_id=demanda.id, acao=Acao.ATRIBUIR) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-header"><h5 class="modal-title">{{ 'Reatribuir' if demanda.atribuido else 'Atribuir' }} demanda</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <label class="form-label">Responsável</label>
+        <select name="atribuido_id" class="form-select select2-modal" required>
+          <option value="">Selecione...</option>
+          {% for u in usuarios %}
+          {% set pode = permissoes.pode_atribuir(current_user.perfil, u.perfil) %}
+          <option value="{{ u.id }}" {{ 'disabled' if not pode }} {{ 'selected' if u.id == demanda.atribuido_id }}>{{ u.nome }} ({{ u.perfil_rotulo }}){{ ' — não permitido' if not pode }}</option>
+          {% endfor %}
+        </select>
+        {% if current_user.perfil == Perfil.CHEFE %}<div class="form-text">Chefe de Divisão só pode atribuir a usuários com perfil Usuário Comum.</div>{% endif %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link" data-bs-dismiss="modal">Voltar</button>
+        <button class="btn btn-primary">Atribuir</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function () {
+  // Cálculo de P em tempo real (apenas visual; o valor oficial é calculado no servidor)
+  function recalcular() {
+    var v = $('.peso-gut').map(function () { return parseInt($(this).val(), 10); }).get();
+    var ok = v.length === 3 && v.every(function (n) { return n >= 1 && n <= 5; });
+    $('#p-calculado').text(ok ? v[0] * v[1] * v[2] : '—');
+  }
+  $('.peso-gut').on('change', recalcular);
+
+  $('.select2-modal').each(function () {
+    $(this).select2({ theme: 'bootstrap-5', language: 'pt-BR', dropdownParent: $(this).closest('.modal') });
+  });
+});
+</script>
+{% endblock %}
