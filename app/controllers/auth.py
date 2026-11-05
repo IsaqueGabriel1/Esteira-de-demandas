@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
-from ..forms import LoginForm, TrocarSenhaForm
+from ..forms import CadastroForm, LoginForm, TrocarSenhaForm
 from ..services import usuario_service
 from ..services.erros import RegraNegocioError
 
@@ -30,8 +30,26 @@ def login():
         if usuario:
             login_user(usuario, remember=form.lembrar.data)
             return redirect(_destino_seguro(request.args.get("next")) or url_for("demandas.quadro"))
-        flash("E-mail ou senha inválidos.", "danger")
+        elif usuario_service.aguardando_aprovacao(form.email.data, form.senha.data):
+            flash("Seu cadastro ainda aguarda a aprovação de um Gerente.", "warning")
+        else:
+            flash("E-mail ou senha inválidos.", "danger")
     return render_template("auth/login.html", form=form)
+
+
+@bp.route("/cadastro", methods=["GET", "POST"])
+def cadastro():
+    if current_user.is_authenticated:
+        return redirect(url_for("demandas.quadro"))
+    form = CadastroForm()
+    if form.validate_on_submit():
+        try:
+            usuario_service.autocadastrar(form.nome.data, form.email.data, form.senha.data)
+            flash("Cadastro enviado! Você poderá entrar assim que um Gerente aprovar o acesso.", "success")
+            return redirect(url_for("auth.login"))
+        except RegraNegocioError as erro:
+            flash(erro.mensagem, "danger")
+    return render_template("auth/cadastro.html", form=form)
 
 
 @bp.route("/logout", methods=["POST"])

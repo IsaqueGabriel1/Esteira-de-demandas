@@ -98,3 +98,26 @@ def test_nao_desativa_ultimo_gerente(client, login, usuarios):
     g = usuarios["gerente"]
     with pytest.raises(RegraNegocioError):
         usuario_service.atualizar(g, g, g.nome, g.email, "CHEFE", ativo=True)
+
+
+def test_autocadastro_cria_usuario_inativo_ate_aprovacao(client, usuarios):
+    from app.models import Usuario
+    from app.services.perfis import Perfil
+
+    assert client.get("/cadastro").status_code == 200
+    resposta = client.post("/cadastro", data={
+        "nome": "Nina Nova", "email": "Nova@Teste.gov.br", "senha": "senha-segura-123", "confirmacao": "senha-segura-123",
+    })
+    assert resposta.status_code == 302
+    novo = Usuario.query.filter_by(email="nova@teste.gov.br").one()
+    assert novo.perfil == Perfil.USUARIO and not novo.ativo
+
+    resposta = client.post("/login", data={"email": "nova@teste.gov.br", "senha": "senha-segura-123"})
+    assert "aguarda a aprovação".encode() in resposta.data
+
+
+def test_autocadastro_rejeita_email_existente(client, usuarios):
+    resposta = client.post("/cadastro", data={
+        "nome": "Outro", "email": usuarios["gerente"].email, "senha": "senha-segura-123", "confirmacao": "senha-segura-123",
+    })
+    assert "Já existe um usuário".encode() in resposta.data

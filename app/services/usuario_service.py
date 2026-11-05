@@ -1,4 +1,4 @@
-"""Regras de negócio de usuários: autenticação e cadastro (restrito ao Gerente)."""
+"""Regras de negócio de usuários: autenticação, autocadastro e gestão (restrita ao Gerente)."""
 from ..extensions import db
 from ..models import Usuario
 from . import permissoes
@@ -18,6 +18,24 @@ def autenticar(email, senha):
     if usuario and usuario.ativo and usuario.verificar_senha(senha or ""):
         return usuario
     return None
+
+
+def aguardando_aprovacao(email, senha):
+    """True se e-mail e senha conferem, mas a conta ainda está inativa."""
+    usuario = Usuario.query.filter_by(email=_normalizar_email(email)).first()
+    return bool(usuario and not usuario.ativo and usuario.verificar_senha(senha or ""))
+
+
+def autocadastrar(nome, email, senha):
+    """Cadastro feito pela própria pessoa: sempre Usuário Comum e inativo,
+    até que um Gerente ative a conta em Usuários."""
+    nome, email = _validar_dados(nome, email, Perfil.USUARIO)
+    _validar_senha(senha)
+    usuario = Usuario(nome=nome, email=email, perfil=Perfil.USUARIO, ativo=False)
+    usuario.definir_senha(senha)
+    db.session.add(usuario)
+    db.session.commit()
+    return usuario
 
 
 def listar_ativos():
