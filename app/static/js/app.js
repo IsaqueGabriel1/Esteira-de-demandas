@@ -25,4 +25,19 @@
     $toast.on('hidden.bs.toast', function () { $toast.remove(); });
     t.show();
   };
+
+  // Botões "Copiar" (data-copiar="texto"). Em HTTP sem TLS a API de área de
+  // transferência não existe, então usa o método antigo como alternativa.
+  $(document).on('click', '[data-copiar]', function () {
+    var texto = $(this).attr('data-copiar');
+    var ok = function () { mostrarAviso('Copiado para a área de transferência.'); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(texto).then(ok, function () { mostrarAviso('Não foi possível copiar.', 'erro'); });
+      return;
+    }
+    var $campo = $('<textarea readonly>').val(texto).css({ position: 'fixed', opacity: 0 }).appendTo('body');
+    $campo[0].select();
+    try { document.execCommand('copy'); ok(); } catch (e) { mostrarAviso('Não foi possível copiar.', 'erro'); }
+    $campo.remove();
+  });
 })(jQuery);

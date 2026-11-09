@@ -11,6 +11,7 @@
         {{ campo(form.nome) }}
         {{ campo(form.email) }}
         {{ campo(form.perfil) }}
+        {{ campo(form.divisao) }}
         <div class="mb-3">
           {{ form.senha.label(class="form-label", text=('Nova senha (deixe em branco para manter)' if usuario else 'Senha inicial')) }}
           {{ form.senha(class="form-control" + (" is-invalid" if form.senha.errors else ""), autocomplete="new-password") }}

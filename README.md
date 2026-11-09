@@ -75,7 +75,7 @@ Todas as bibliotecas de interface (Bootstrap, jQuery, Select2, SortableJS, Chart
 ## 5. Regras de negócio
 
 ### Perfis
-| Ação | Gerente | Chefe de Divisão | Usuário Comum |
+| Ação | Gerente | Chefe de Divisão / Gestor do Plano | Usuário Comum |
 |---|---|---|---|
 | Criar / editar / cancelar demanda | ✅ | ✅ | ❌ |
 | Definir pesos GUT | ✅ | ✅ | ❌ |
@@ -85,6 +85,8 @@ Todas as bibliotecas de interface (Bootstrap, jQuery, Select2, SortableJS, Chart
 | Aprovar / devolver entrega | ✅ | ✅ (exceto a própria) | ❌ |
 | Ver demandas | todas | todas | só as suas e as de apoio |
 | Gerenciar usuários | ✅ | ❌ | ❌ |
+
+O perfil **Gestor do Plano** tem exatamente os mesmos poderes do Chefe de Divisão.
 
 O campo "Usuário atribuído" lista todos os usuários; os que o perfil logado não pode atribuir aparecem desabilitados, e a regra é **validada novamente no back-end** (`app/services/permissoes.py`).
 

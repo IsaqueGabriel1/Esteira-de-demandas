@@ -108,3 +108,18 @@ def test_arraste_permitido_e_bloqueado():
     assert acao_por_arraste(Status.AGUARDANDO_ACEITE, Status.EM_ANDAMENTO) == Acao.ACEITAR
     with pytest.raises(TransicaoInvalida):
         acao_por_arraste(Status.NOVA, Status.CONCLUIDA)
+
+
+def test_gestor_do_plano_tem_os_mesmos_poderes_do_chefe():
+    from app.services import permissoes
+    from app.services.perfis import Perfil
+
+    for regra in (permissoes.pode_criar_demanda, permissoes.pode_editar_demanda, permissoes.pode_cancelar,
+                  permissoes.pode_definir_gut, permissoes.pode_ver_todas, permissoes.pode_gerenciar_usuarios):
+        assert regra(Perfil.GESTOR_PLANO) == regra(Perfil.CHEFE), regra.__name__
+    for destino in Perfil.TODOS:
+        assert permissoes.pode_atribuir(Perfil.GESTOR_PLANO, destino) == permissoes.pode_atribuir(Perfil.CHEFE, destino)
+    for eh_o_atribuido in (True, False):
+        assert permissoes.pode_revisar(Perfil.GESTOR_PLANO, eh_o_atribuido) == permissoes.pode_revisar(Perfil.CHEFE, eh_o_atribuido)
+    assert not permissoes.pode_gerenciar_usuarios(Perfil.GESTOR_PLANO)
+    assert not permissoes.pode_atribuir(Perfil.GESTOR_PLANO, Perfil.GERENTE)

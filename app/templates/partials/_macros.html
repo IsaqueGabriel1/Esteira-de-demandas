@@ -15,6 +15,12 @@
   <span class="badge eixo eixo-{{ eixo.numero }}" title="{{ eixo.rotulo }}">{{ eixo.sigla }}</span>
 {%- endmacro %}
 
+{% macro badge_divisao(demanda) -%}
+  {%- if demanda.divisao -%}
+  <span class="badge bg-secondary-subtle text-secondary" title="Divisão">{{ demanda.divisao }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
 {% macro prazo(demanda) -%}
   {%- if demanda.termino -%}
   <span class="{{ 'text-danger fw-semibold' if demanda.atrasada else 'text-muted' }}">
@@ -38,6 +44,7 @@
     <div class="d-flex justify-content-between align-items-start mb-1">
       <div class="d-flex gap-1 align-items-center">
         {{ badge_eixo(demanda.eixo) }}
+        {{ badge_divisao(demanda) }}
         <a href="{{ url_for('demandas.detalhe', demanda_id=demanda.id) }}" class="small text-muted text-decoration-none">#{{ demanda.id }}</a>
       </div>
       {{ badge_prioridade(demanda) }}

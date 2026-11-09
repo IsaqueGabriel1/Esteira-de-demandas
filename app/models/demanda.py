@@ -25,6 +25,10 @@ class Demanda(db.Model):
     eixo_id = db.Column(db.Integer, db.ForeignKey("eixos.id"), nullable=False, index=True)
     acao = db.Column(db.Text, nullable=False)
     produto = db.Column(db.Text, nullable=False)
+    # Obrigatória em novas demandas; pode ficar vazia nas criadas antes de o campo existir.
+    divisao = db.Column(db.String(10), nullable=True, index=True)
+    # Caminho ou link da pasta na rede onde está o trabalho realizado (opcional).
+    pasta_rede = db.Column(db.String(500), nullable=True)
     inicio = db.Column(db.Date, nullable=True)
     termino = db.Column(db.Date, nullable=True)
 

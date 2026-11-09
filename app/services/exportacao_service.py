@@ -11,7 +11,7 @@ except Exception:
     FUSO_LOCAL = timezone(timedelta(hours=-3))
 
 CABECALHO = [
-    "ID", "Eixo", "Ação", "Produto / Entrega", "Status", "Atrasada", "Início", "Término",
+    "ID", "Eixo", "Divisão", "Ação", "Produto / Entrega", "Pasta da Rede", "Status", "Atrasada", "Início", "Término",
     "Responsável", "Apoio", "G", "U", "T", "Prioridade (P)", "Faixa", "Criada em",
 ]
 
@@ -29,8 +29,10 @@ def demandas_para_csv(demandas):
         escritor.writerow([
             d.id,
             d.eixo.rotulo,
+            d.divisao or "",
             d.acao,
             d.produto,
+            d.pasta_rede or "",
             d.status_rotulo,
             "Sim" if d.atrasada else "Não",
             _data(d.inicio),

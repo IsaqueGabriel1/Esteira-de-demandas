@@ -1,8 +1,9 @@
 from flask_wtf import FlaskForm
-from wtforms import DateField, SelectField, SelectMultipleField, TextAreaField
-from wtforms.validators import DataRequired, Optional, ValidationError
+from wtforms import DateField, SelectField, SelectMultipleField, StringField, TextAreaField
+from wtforms.validators import DataRequired, Length, Optional, ValidationError
 
 from ..services import permissoes
+from ..services.divisoes import Divisao
 
 OPCOES_PESO = [(0, "—")] + [(i, str(i)) for i in range(1, 6)]
 
@@ -17,8 +18,18 @@ def _int_ou_zero(valor):
 class DemandaForm(FlaskForm):
     eixo_id = SelectField("Eixo", coerce=_int_ou_zero, validators=[DataRequired(message="Selecione o eixo.")])
     acao = TextAreaField("Ação", validators=[DataRequired(message="Descreva a ação a ser realizada.")])
+    divisao = SelectField(
+        "Divisão",
+        choices=[("", "Selecione...")] + [(d, d) for d in Divisao.TODAS],
+        validators=[DataRequired(message="Selecione a divisão.")],
+    )
     produto = TextAreaField(
         "Produto / Entrega", validators=[DataRequired(message="Descreva o produto ou entrega esperada.")]
+    )
+    pasta_rede = StringField(
+        "Pasta da Rede",
+        validators=[Optional(), Length(max=500, message="Máximo de 500 caracteres.")],
+        render_kw={"placeholder": r"Ex.: \\servidor\outorgas\trabalho"},
     )
     inicio = DateField("Começa em", validators=[Optional()])
     termino = DateField("Termina em", validators=[Optional()])
@@ -63,6 +74,8 @@ class DemandaForm(FlaskForm):
             "eixo_id": self.eixo_id.data or None,
             "acao": self.acao.data,
             "produto": self.produto.data,
+            "divisao": self.divisao.data,
+            "pasta_rede": self.pasta_rede.data,
             "inicio": self.inicio.data,
             "termino": self.termino.data,
             "atribuido_id": self.atribuido_id.data or None,

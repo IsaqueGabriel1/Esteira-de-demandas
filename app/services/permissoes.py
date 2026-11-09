@@ -10,6 +10,8 @@
 | Aprovar / devolver revisão            | Sim     | Sim, se não for o atribuído | Não        |
 | Ver todas as demandas                 | Sim     | Sim                      | Só as suas    |
 | Gerenciar usuários                    | Sim     | Não                      | Não           |
+
+O Gestor do Plano tem exatamente os mesmos poderes do Chefe de Divisão.
 """
 from .perfis import Perfil
 
@@ -43,18 +45,18 @@ def pode_gerenciar_usuarios(perfil):
 
 
 def pode_atribuir(perfil_quem_atribui, perfil_destino):
-    """Gerente atribui a qualquer pessoa; Chefe de Divisão apenas a Usuário Comum."""
+    """Gerente atribui a qualquer pessoa; Chefe de Divisão e Gestor do Plano apenas a Usuário Comum."""
     if perfil_quem_atribui == Perfil.GERENTE:
         return perfil_destino in Perfil.TODOS
-    if perfil_quem_atribui == Perfil.CHEFE:
+    if perfil_quem_atribui in Perfil.GESTORES_RESTRITOS:
         return perfil_destino == Perfil.USUARIO
     return False
 
 
 def pode_revisar(perfil, eh_o_atribuido):
-    """Gerente sempre pode revisar; Chefe só se não for o responsável pela demanda."""
+    """Gerente sempre pode revisar; Chefe e Gestor do Plano só se não forem o responsável pela demanda."""
     if perfil == Perfil.GERENTE:
         return True
-    if perfil == Perfil.CHEFE:
+    if perfil in Perfil.GESTORES_RESTRITOS:
         return not eh_o_atribuido
     return False

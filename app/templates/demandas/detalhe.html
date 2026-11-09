@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/_macros.html" import badge_prioridade, badge_status, badge_eixo, prazo, avatar %}
+{% from "partials/_macros.html" import badge_prioridade, badge_status, badge_eixo, badge_divisao, prazo, avatar %}
 {% block titulo %}Demanda #{{ demanda.id }}{% endblock %}
 {% block conteudo %}
 <nav class="small mb-2"><a href="{{ url_for('demandas.quadro') }}" class="text-decoration-none"><i class="bi bi-arrow-left"></i> Voltar ao quadro</a></nav>
@@ -7,7 +7,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
   <div>
     <div class="d-flex gap-2 align-items-center mb-1">
-      <span class="text-muted">#{{ demanda.id }}</span> {{ badge_eixo(demanda.eixo) }} {{ badge_status(demanda) }} {{ badge_prioridade(demanda) }}
+      <span class="text-muted">#{{ demanda.id }}</span> {{ badge_eixo(demanda.eixo) }} {{ badge_divisao(demanda) or '<span class="badge bg-secondary-subtle text-secondary">Divisão não informada</span>'|safe }} {{ badge_status(demanda) }} {{ badge_prioridade(demanda) }}
       {% if demanda.atrasada %}<span class="badge bg-danger">Atrasada</span>{% endif %}
     </div>
     <h1 class="h5 mb-0 text-muted fw-normal">{{ demanda.eixo.rotulo }}</h1>
@@ -60,6 +60,19 @@
         <p class="texto-longo">{{ demanda.acao }}</p>
         <h2 class="h6 text-uppercase text-muted small mt-3">Produto / Entrega</h2>
         <p class="texto-longo mb-0">{{ demanda.produto }}</p>
+        <h2 class="h6 text-uppercase text-muted small mt-3">Pasta da Rede</h2>
+        {% if demanda.pasta_rede %}
+        <div class="d-flex align-items-center gap-2">
+          {% if demanda.pasta_rede.lower().startswith(('http://', 'https://')) %}
+          <a href="{{ demanda.pasta_rede }}" target="_blank" rel="noopener" class="text-break"><i class="bi bi-folder2-open"></i> {{ demanda.pasta_rede }}</a>
+          {% else %}
+          <code class="text-break"><i class="bi bi-folder2-open"></i> {{ demanda.pasta_rede }}</code>
+          {% endif %}
+          <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" data-copiar="{{ demanda.pasta_rede }}" title="Copiar"><i class="bi bi-clipboard"></i> Copiar</button>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Não informada.</p>
+        {% endif %}
       </div>
     </div>
 
@@ -136,7 +149,7 @@
           <tr class="fw-semibold"><td>Prioridade (P)</td><td class="text-end">{{ demanda.prioridade }}</td></tr>
         </table>
         {% else %}
-        <p class="text-muted small mb-0">A demanda ainda não foi priorizada pelo Gerente ou Chefe de Divisão.</p>
+        <p class="text-muted small mb-0">A demanda ainda não foi priorizada por um gestor.</p>
         {% endif %}
       </div>
     </div>
@@ -188,7 +201,7 @@
           <option value="{{ u.id }}" {{ 'disabled' if not pode }} {{ 'selected' if u.id == demanda.atribuido_id }}>{{ u.nome }} ({{ u.perfil_rotulo }}){{ ' — não permitido' if not pode }}</option>
           {% endfor %}
         </select>
-        {% if current_user.perfil == Perfil.CHEFE %}<div class="form-text">Chefe de Divisão só pode atribuir a usuários com perfil Usuário Comum.</div>{% endif %}
+        {% if current_user.perfil in Perfil.GESTORES_RESTRITOS %}<div class="form-text">{{ current_user.perfil_rotulo }} só pode atribuir a usuários com perfil Usuário Comum.</div>{% endif %}
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-link" data-bs-dismiss="modal">Voltar</button>

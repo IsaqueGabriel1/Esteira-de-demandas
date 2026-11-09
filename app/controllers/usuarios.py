@@ -27,7 +27,8 @@ def novo():
             if not form.senha.data:
                 raise RegraNegocioError("Informe uma senha inicial para o usuário.")
             usuario = usuario_service.criar(
-                current_user, form.nome.data, form.email.data, form.perfil.data, form.senha.data
+                current_user, form.nome.data, form.email.data, form.perfil.data, form.senha.data,
+                divisao=form.divisao.data or None,
             )
             flash(f"Usuário {usuario.nome} criado.", "success")
             return redirect(url_for("usuarios.lista"))
@@ -46,7 +47,7 @@ def editar(usuario_id):
         try:
             usuario_service.atualizar(
                 current_user, usuario, form.nome.data, form.email.data, form.perfil.data,
-                ativo=form.ativo.data, nova_senha=form.senha.data or None,
+                ativo=form.ativo.data, nova_senha=form.senha.data or None, divisao=form.divisao.data or None,
             )
             flash("Usuário atualizado.", "success")
             return redirect(url_for("usuarios.lista"))

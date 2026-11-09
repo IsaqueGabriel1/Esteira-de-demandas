@@ -169,7 +169,7 @@ def test_concluida_nao_pode_ser_editada(usuarios, nova_demanda, eixo):
     svc.enviar_revisao(usuarios["usuario"], d)
     svc.aprovar(usuarios["gerente"], d)
     with pytest.raises(RegraNegocioError):
-        svc.editar(usuarios["gerente"], d, {"eixo_id": eixo.id, "acao": "x", "produto": "y"})
+        svc.editar(usuarios["gerente"], d, {"eixo_id": eixo.id, "acao": "x", "produto": "y", "divisao": "DPO"})
     with pytest.raises(RegraNegocioError):
         svc.definir_gut(usuarios["gerente"], d, 5, 5, 5)
 
@@ -275,3 +275,31 @@ def test_arraste_valida_permissao(usuarios, nova_demanda):
     assert d.status == Status.EM_ANDAMENTO
     with pytest.raises(RegraNegocioError):
         svc.mover_por_arraste(usuarios["usuario"], d, Status.CONCLUIDA)
+
+
+def test_divisao_e_obrigatoria_e_registrada_na_edicao(usuarios, nova_demanda, eixo):
+    from app.services import demanda_service as svc
+    from app.services.erros import RegraNegocioError
+
+    with pytest.raises(RegraNegocioError):
+        nova_demanda(usuarios["gerente"], divisao="")
+    with pytest.raises(RegraNegocioError):
+        nova_demanda(usuarios["gerente"], divisao="OUTRA")
+
+    d = nova_demanda(usuarios["gerente"], divisao="DIO")
+    svc.editar(usuarios["gerente"], d, {"eixo_id": eixo.id, "acao": d.acao, "produto": d.produto, "divisao": "DIO/DPO"})
+    assert d.divisao == "DIO/DPO"
+    assert any("divisão: DIO → DIO/DPO" in h.descricao for h in d.historico)
+
+
+def test_pasta_da_rede_e_opcional_e_registrada_na_edicao(usuarios, nova_demanda, eixo):
+    from app.services import demanda_service as svc
+
+    d = nova_demanda(usuarios["gerente"], pasta_rede="   ")
+    assert d.pasta_rede is None
+
+    caminho = r"\servidor\outorgas\inventario"
+    svc.editar(usuarios["gerente"], d, {"eixo_id": eixo.id, "acao": d.acao, "produto": d.produto,
+                                         "divisao": d.divisao, "pasta_rede": caminho})
+    assert d.pasta_rede == caminho
+    assert any("pasta da rede" in h.descricao for h in d.historico)

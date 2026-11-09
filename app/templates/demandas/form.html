@@ -9,9 +9,13 @@
       {{ form.hidden_tag() }}
       <div class="card mb-3">
         <div class="card-body">
-          {{ campo(form.eixo_id) }}
+          <div class="row">
+            {{ campo(form.eixo_id, 'col-md-8') }}
+            {{ campo(form.divisao, 'col-md-4') }}
+          </div>
           {{ campo(form.acao) }}
           {{ campo(form.produto) }}
+          {{ campo(form.pasta_rede) }}
           <div class="row">
             {{ campo(form.inicio, 'col-md-6') }}
             {{ campo(form.termino, 'col-md-6') }}
@@ -25,8 +29,8 @@
           <div class="row">
             <div class="col-md-6">
               {{ campo(form.atribuido_id) }}
-              {% if current_user.perfil == Perfil.CHEFE %}
-              <div class="form-text mt-n2 mb-3">Como Chefe de Divisão, você só pode atribuir a usuários com perfil Usuário Comum.</div>
+              {% if current_user.perfil in Perfil.GESTORES_RESTRITOS %}
+              <div class="form-text mt-n2 mb-3">Como {{ current_user.perfil_rotulo }}, você só pode atribuir a usuários com perfil Usuário Comum.</div>
               {% endif %}
               {% if demanda and demanda.atribuido %}
               <div class="form-text mt-n2 mb-3">Trocar o responsável reinicia o aceite (status “Aguardando aceite”).</div>

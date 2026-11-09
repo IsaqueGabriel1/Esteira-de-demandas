@@ -32,7 +32,7 @@ def db(app):
 def _novo_usuario(db, nome, email, perfil):
     from app.models import Usuario
 
-    usuario = Usuario(nome=nome, email=email, perfil=perfil, ativo=True)
+    usuario = Usuario(nome=nome, email=email, perfil=perfil, divisao="DIO", ativo=True)
     usuario.definir_senha("senha-segura-123")
     db.session.add(usuario)
     db.session.commit()
@@ -66,7 +66,7 @@ def nova_demanda(eixo):
     from app.services import demanda_service
 
     def _criar(criador, **campos):
-        dados = {"eixo_id": eixo.id, "acao": "Inventariar bases de outorga", "produto": "Planilha de inventário"}
+        dados = {"eixo_id": eixo.id, "acao": "Inventariar bases de outorga", "produto": "Planilha de inventário", "divisao": "DIO"}
         dados.update(campos)
         return demanda_service.criar(criador, dados)
 

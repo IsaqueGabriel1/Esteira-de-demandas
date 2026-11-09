@@ -15,11 +15,12 @@
           {{ form.hidden_tag() }}
           {% for campo, extra in [(form.nome, {"autofocus": true, "autocomplete": "name"}),
                                   (form.email, {"autocomplete": "username"}),
+                                  (form.divisao, {}),
                                   (form.senha, {"autocomplete": "new-password"}),
                                   (form.confirmacao, {"autocomplete": "new-password"})] %}
           <div class="mb-3">
             {{ campo.label(class="form-label") }}
-            {{ campo(class="form-control" + (" is-invalid" if campo.errors else ""), **extra) }}
+            {{ campo(class=("form-select" if campo.type == "SelectField" else "form-control") + (" is-invalid" if campo.errors else ""), **extra) }}
             {% for erro in campo.errors %}<div class="invalid-feedback">{{ erro }}</div>{% endfor %}
           </div>
           {% endfor %}

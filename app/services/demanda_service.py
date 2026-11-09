@@ -13,6 +13,7 @@ from ..extensions import db
 from ..models import Demanda, Eixo, HistoricoDemanda, TipoEvento, Usuario, demanda_apoio
 from ..models.base import agora
 from . import gut, permissoes
+from .divisoes import Divisao
 from .erros import PermissaoNegada, RegraNegocioError
 from .perfis import Perfil
 from .fluxo import Acao, Status, acao_por_arraste, proximo_status, transicao_permitida
@@ -65,6 +66,16 @@ def _buscar_usuario_ativo(usuario_id, papel="usuário"):
     if not usuario or not usuario.ativo:
         raise RegraNegocioError(f"O {papel} selecionado não existe ou está inativo.")
     return usuario
+
+
+def _validar_divisao(valor):
+    if valor not in Divisao.TODAS:
+        raise RegraNegocioError("Selecione a divisão: " + ", ".join(Divisao.TODAS) + ".")
+    return valor
+
+
+def _texto_opcional(valor):
+    return (valor or "").strip() or None
 
 
 def _formatar_data(d):
@@ -127,7 +138,7 @@ def _aplicar_gut(usuario, demanda, gravidade, urgencia, tendencia):
 
 def definir_gut(usuario, demanda, gravidade, urgencia, tendencia):
     if not permissoes.pode_definir_gut(usuario.perfil):
-        raise PermissaoNegada("Apenas Gerente ou Chefe de Divisão podem definir os pesos GUT.")
+        raise PermissaoNegada("Apenas Gerente, Chefe de Divisão ou Gestor do Plano podem definir os pesos GUT.")
     _exigir_nao_finalizada(demanda)
     if None in (gravidade, urgencia, tendencia):
         raise RegraNegocioError("Informe os três pesos GUT (Gravidade, Urgência e Tendência).")
@@ -167,9 +178,9 @@ def _definir_apoios(usuario, demanda, apoio_ids):
 def _validar_permissao_atribuicao(usuario, destino):
     if permissoes.pode_atribuir(usuario.perfil, destino.perfil):
         return
-    if usuario.perfil == Perfil.CHEFE:
+    if usuario.perfil in Perfil.GESTORES_RESTRITOS:
         raise PermissaoNegada(
-            "O Chefe de Divisão só pode atribuir demandas a usuários com perfil Usuário Comum."
+            f"O {usuario.perfil_rotulo} só pode atribuir demandas a usuários com perfil Usuário Comum."
         )
     raise PermissaoNegada("Você não tem permissão para atribuir demandas.")
 
@@ -225,15 +236,17 @@ def atribuir(usuario, demanda, destino_id):
 def criar(usuario, dados):
     """Cria uma demanda.
 
-    dados: eixo_id, acao, produto, inicio, termino, atribuido_id (opcional),
+    dados: eixo_id, acao, produto, divisao, pasta_rede (opcional), inicio, termino, atribuido_id (opcional),
            apoio_ids (lista), gravidade, urgencia, tendencia (opcionais)
     """
     if not permissoes.pode_criar_demanda(usuario.perfil):
-        raise PermissaoNegada("Apenas Gerente ou Chefe de Divisão podem criar demandas.")
+        raise PermissaoNegada("Apenas Gerente, Chefe de Divisão ou Gestor do Plano podem criar demandas.")
 
     eixo = _buscar_eixo(dados.get("eixo_id"))
     acao = _texto_obrigatorio(dados.get("acao"), "Ação")
     produto = _texto_obrigatorio(dados.get("produto"), "Produto / Entrega")
+    divisao = _validar_divisao(dados.get("divisao"))
+    pasta_rede = _texto_opcional(dados.get("pasta_rede"))
     inicio, termino = dados.get("inicio"), dados.get("termino")
     _validar_datas(inicio, termino)
 
@@ -247,7 +260,7 @@ def criar(usuario, dados):
         raise RegraNegocioError("O usuário atribuído não pode ser também usuário de apoio.")
 
     demanda = Demanda(
-        eixo=eixo, acao=acao, produto=produto, inicio=inicio, termino=termino,
+        eixo=eixo, acao=acao, produto=produto, divisao=divisao, pasta_rede=pasta_rede, inicio=inicio, termino=termino,
         status=Status.NOVA, criado_por_id=usuario.id,
     )
     db.session.add(demanda)
@@ -266,12 +279,14 @@ def criar(usuario, dados):
 def editar(usuario, demanda, dados):
     """Edita campos da demanda. Mesmo formato de 'dados' de criar()."""
     if not permissoes.pode_editar_demanda(usuario.perfil):
-        raise PermissaoNegada("Apenas Gerente ou Chefe de Divisão podem editar demandas.")
+        raise PermissaoNegada("Apenas Gerente, Chefe de Divisão ou Gestor do Plano podem editar demandas.")
     _exigir_nao_finalizada(demanda)
 
     eixo = _buscar_eixo(dados.get("eixo_id"))
     acao = _texto_obrigatorio(dados.get("acao"), "Ação")
     produto = _texto_obrigatorio(dados.get("produto"), "Produto / Entrega")
+    divisao = _validar_divisao(dados.get("divisao"))
+    pasta_rede = _texto_opcional(dados.get("pasta_rede"))
     inicio, termino = dados.get("inicio"), dados.get("termino")
     _validar_datas(inicio, termino)
 
@@ -285,6 +300,12 @@ def editar(usuario, demanda, dados):
     if demanda.produto != produto:
         alteracoes.append("produto/entrega")
         demanda.produto = produto
+    if demanda.divisao != divisao:
+        alteracoes.append(f"divisão: {demanda.divisao or '—'} → {divisao}")
+        demanda.divisao = divisao
+    if demanda.pasta_rede != pasta_rede:
+        alteracoes.append("pasta da rede")
+        demanda.pasta_rede = pasta_rede
     if demanda.inicio != inicio:
         alteracoes.append(f"início: {_formatar_data(demanda.inicio)} → {_formatar_data(inicio)}")
         demanda.inicio = inicio
@@ -354,7 +375,7 @@ def enviar_revisao(usuario, demanda, comentario=None):
 def aprovar(usuario, demanda, comentario=None):
     if not permissoes.pode_revisar(usuario.perfil, _eh_atribuido(usuario, demanda)):
         raise PermissaoNegada(
-            "Apenas Gerente ou Chefe de Divisão (que não seja o responsável) podem aprovar a entrega."
+            "Apenas Gerente, Chefe de Divisão ou Gestor do Plano (que não seja o responsável) podem aprovar a entrega."
         )
     demanda.status = proximo_status(Acao.APROVAR, demanda.status)
     demanda.concluido_em = agora()
@@ -369,7 +390,7 @@ def aprovar(usuario, demanda, comentario=None):
 def devolver(usuario, demanda, motivo):
     if not permissoes.pode_revisar(usuario.perfil, _eh_atribuido(usuario, demanda)):
         raise PermissaoNegada(
-            "Apenas Gerente ou Chefe de Divisão (que não seja o responsável) podem devolver a entrega."
+            "Apenas Gerente, Chefe de Divisão ou Gestor do Plano (que não seja o responsável) podem devolver a entrega."
         )
     texto = _justificativa(motivo, "o motivo da devolução")
     demanda.status = proximo_status(Acao.DEVOLVER, demanda.status)
@@ -382,7 +403,7 @@ def devolver(usuario, demanda, motivo):
 
 def cancelar(usuario, demanda, motivo):
     if not permissoes.pode_cancelar(usuario.perfil):
-        raise PermissaoNegada("Apenas Gerente ou Chefe de Divisão podem cancelar demandas.")
+        raise PermissaoNegada("Apenas Gerente, Chefe de Divisão ou Gestor do Plano podem cancelar demandas.")
     texto = _justificativa(motivo, "o motivo do cancelamento")
     demanda.status = proximo_status(Acao.CANCELAR, demanda.status)
     _registrar(

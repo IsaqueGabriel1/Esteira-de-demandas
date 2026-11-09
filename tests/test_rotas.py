@@ -34,7 +34,7 @@ def test_exportacao_csv(client, login, usuarios, nova_demanda):
 def test_criar_demanda_pelo_formulario(client, login, usuarios, eixo):
     login(usuarios["chefe"])
     resposta = client.post("/demandas/nova", data={
-        "eixo_id": eixo.id, "acao": "Criar regra de negócio", "produto": "Documento de regra",
+        "eixo_id": eixo.id, "acao": "Criar regra de negócio", "produto": "Documento de regra", "divisao": "DIO/DPO",
         "atribuido_id": usuarios["usuario"].id, "apoio_ids": [usuarios["usuario2"].id],
         "gravidade": 3, "urgencia": 3, "tendencia": 3,
     })
@@ -45,7 +45,7 @@ def test_criar_demanda_pelo_formulario(client, login, usuarios, eixo):
 def test_formulario_bloqueia_chefe_atribuindo_a_gerente(client, login, usuarios, eixo):
     login(usuarios["chefe"])
     resposta = client.post("/demandas/nova", data={
-        "eixo_id": eixo.id, "acao": "x", "produto": "y", "atribuido_id": usuarios["gerente"].id,
+        "eixo_id": eixo.id, "acao": "x", "produto": "y", "divisao": "DIO", "atribuido_id": usuarios["gerente"].id,
     }, follow_redirects=True)
     assert "só pode atribuir".encode() in resposta.data
 
@@ -106,11 +106,11 @@ def test_autocadastro_cria_usuario_inativo_ate_aprovacao(client, usuarios):
 
     assert client.get("/cadastro").status_code == 200
     resposta = client.post("/cadastro", data={
-        "nome": "Nina Nova", "email": "Nova@Teste.gov.br", "senha": "senha-segura-123", "confirmacao": "senha-segura-123",
+        "nome": "Nina Nova", "email": "Nova@Teste.gov.br", "divisao": "GGO", "senha": "senha-segura-123", "confirmacao": "senha-segura-123",
     })
     assert resposta.status_code == 302
     novo = Usuario.query.filter_by(email="nova@teste.gov.br").one()
-    assert novo.perfil == Perfil.USUARIO and not novo.ativo
+    assert novo.perfil == Perfil.USUARIO and not novo.ativo and novo.divisao == "GGO"
 
     resposta = client.post("/login", data={"email": "nova@teste.gov.br", "senha": "senha-segura-123"})
     assert "aguarda a aprovação".encode() in resposta.data
@@ -118,6 +118,46 @@ def test_autocadastro_cria_usuario_inativo_ate_aprovacao(client, usuarios):
 
 def test_autocadastro_rejeita_email_existente(client, usuarios):
     resposta = client.post("/cadastro", data={
-        "nome": "Outro", "email": usuarios["gerente"].email, "senha": "senha-segura-123", "confirmacao": "senha-segura-123",
+        "nome": "Outro", "email": usuarios["gerente"].email, "divisao": "DIO", "senha": "senha-segura-123", "confirmacao": "senha-segura-123",
     })
     assert "Já existe um usuário".encode() in resposta.data
+
+
+def test_usuario_sem_divisao_e_obrigado_a_informar_ao_entrar(client, login, usuarios, db):
+    usuario = usuarios["usuario"]
+    usuario.divisao = None
+    db.session.commit()
+
+    login(usuario)
+    resposta = client.get("/quadro")
+    assert resposta.status_code == 302 and "/minha-divisao" in resposta.headers["Location"]
+
+    assert client.post("/minha-divisao", data={"divisao": "XYZ"}).status_code == 200
+    assert usuario.divisao is None
+    resposta = client.post("/minha-divisao", data={"divisao": "SR"})
+    assert resposta.status_code == 302
+    assert usuario.divisao == "SR"
+    assert client.get("/quadro").status_code == 200
+
+
+def test_administrador_nao_precisa_de_divisao(app, client, login, db):
+    from app.models import Usuario
+    from app.services.perfis import Perfil
+
+    admin = Usuario(nome="Administrador", email=app.config["ADMIN_EMAIL"], perfil=Perfil.GERENTE, ativo=True)
+    admin.definir_senha("senha-segura-123")
+    db.session.add(admin)
+    db.session.commit()
+
+    login(admin)
+    assert client.get("/quadro").status_code == 200
+
+
+def test_gerente_define_divisao_do_usuario(client, login, usuarios):
+    login(usuarios["gerente"])
+    alvo = usuarios["usuario2"]
+    resposta = client.post(f"/usuarios/{alvo.id}/editar", data={
+        "nome": alvo.nome, "email": alvo.email, "perfil": alvo.perfil, "divisao": "GGO", "ativo": "y",
+    })
+    assert resposta.status_code == 302
+    assert alvo.divisao == "GGO"

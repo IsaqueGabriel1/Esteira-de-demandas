@@ -1,7 +1,10 @@
 """Regras de negócio de usuários: autenticação, autocadastro e gestão (restrita ao Gerente)."""
+from flask import current_app
+
 from ..extensions import db
 from ..models import Usuario
 from . import permissoes
+from .divisoes import DivisaoUsuario
 from .erros import PermissaoNegada, RegraNegocioError
 from .perfis import Perfil
 
@@ -20,18 +23,41 @@ def autenticar(email, senha):
     return None
 
 
+def eh_administrador(usuario):
+    """O Administrador é a conta criada pelo 'flask seed' (ADMIN_EMAIL do .env)."""
+    return usuario.email == _normalizar_email(current_app.config.get("ADMIN_EMAIL"))
+
+
+def precisa_informar_divisao(usuario):
+    return not usuario.divisao and not eh_administrador(usuario)
+
+
+def _validar_divisao(divisao, obrigatoria=True):
+    if not divisao and not obrigatoria:
+        return None
+    if divisao not in DivisaoUsuario.TODAS:
+        raise RegraNegocioError("Selecione a divisão: " + ", ".join(DivisaoUsuario.TODAS) + ".")
+    return divisao
+
+
+def definir_propria_divisao(usuario, divisao):
+    usuario.divisao = _validar_divisao(divisao)
+    db.session.commit()
+
+
 def aguardando_aprovacao(email, senha):
     """True se e-mail e senha conferem, mas a conta ainda está inativa."""
     usuario = Usuario.query.filter_by(email=_normalizar_email(email)).first()
     return bool(usuario and not usuario.ativo and usuario.verificar_senha(senha or ""))
 
 
-def autocadastrar(nome, email, senha):
+def autocadastrar(nome, email, senha, divisao):
     """Cadastro feito pela própria pessoa: sempre Usuário Comum e inativo,
     até que um Gerente ative a conta em Usuários."""
     nome, email = _validar_dados(nome, email, Perfil.USUARIO)
+    divisao = _validar_divisao(divisao)
     _validar_senha(senha)
-    usuario = Usuario(nome=nome, email=email, perfil=Perfil.USUARIO, ativo=False)
+    usuario = Usuario(nome=nome, email=email, perfil=Perfil.USUARIO, divisao=divisao, ativo=False)
     usuario.definir_senha(senha)
     db.session.add(usuario)
     db.session.commit()
@@ -78,20 +104,23 @@ def _gerentes_ativos(excluir_id=None):
     return consulta.count()
 
 
-def criar(admin, nome, email, perfil, senha):
+def criar(admin, nome, email, perfil, senha, divisao=None):
+    """Sem divisão, o próprio usuário a informa no primeiro acesso."""
     _exigir_admin(admin)
     nome, email = _validar_dados(nome, email, perfil)
+    divisao = _validar_divisao(divisao, obrigatoria=False)
     _validar_senha(senha)
-    usuario = Usuario(nome=nome, email=email, perfil=perfil, ativo=True)
+    usuario = Usuario(nome=nome, email=email, perfil=perfil, divisao=divisao, ativo=True)
     usuario.definir_senha(senha)
     db.session.add(usuario)
     db.session.commit()
     return usuario
 
 
-def atualizar(admin, usuario, nome, email, perfil, ativo=True, nova_senha=None):
+def atualizar(admin, usuario, nome, email, perfil, ativo=True, nova_senha=None, divisao=None):
     _exigir_admin(admin)
     nome, email = _validar_dados(nome, email, perfil, ignorar_id=usuario.id)
+    divisao = _validar_divisao(divisao, obrigatoria=False)
     deixa_de_ser_gerente_ativo = usuario.perfil == Perfil.GERENTE and (perfil != Perfil.GERENTE or not ativo)
     if deixa_de_ser_gerente_ativo and _gerentes_ativos(excluir_id=usuario.id) == 0:
         raise RegraNegocioError("O sistema precisa ter pelo menos um Gerente ativo.")
@@ -99,6 +128,7 @@ def atualizar(admin, usuario, nome, email, perfil, ativo=True, nova_senha=None):
         raise RegraNegocioError("Você não pode desativar o seu próprio usuário.")
 
     usuario.nome, usuario.email, usuario.perfil, usuario.ativo = nome, email, perfil, bool(ativo)
+    usuario.divisao = divisao
     if nova_senha:
         _validar_senha(nova_senha)
         usuario.definir_senha(nova_senha)
