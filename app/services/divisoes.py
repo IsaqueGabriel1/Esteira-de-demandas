@@ -4,9 +4,12 @@
 class Divisao:
     DIO = "DIO"
     DPO = "DPO"
+    GGO = "GGO"
     DIO_DPO = "DIO/DPO"
+    DPO_DIO = "DPO/DIO"
+    GGO_DPO_DIO = "GGO/DPO/DIO"
 
-    TODAS = (DIO, DPO, DIO_DPO)
+    TODAS = (DIO, DPO, GGO, DIO_DPO, DPO_DIO, GGO_DPO_DIO)
 
 
 class DivisaoUsuario:

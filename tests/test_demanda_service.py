@@ -292,6 +292,12 @@ def test_divisao_e_obrigatoria_e_registrada_na_edicao(usuarios, nova_demanda, ei
     assert any("divisão: DIO → DIO/DPO" in h.descricao for h in d.historico)
 
 
+@pytest.mark.parametrize("divisao", ["DIO", "DPO", "GGO", "DIO/DPO", "DPO/DIO", "GGO/DPO/DIO"])
+def test_todas_as_divisoes_sao_aceitas(usuarios, nova_demanda, divisao):
+    d = nova_demanda(usuarios["gerente"], divisao=divisao)
+    assert d.divisao == divisao
+
+
 def test_pasta_da_rede_e_opcional_e_registrada_na_edicao(usuarios, nova_demanda, eixo):
     from app.services import demanda_service as svc
 
