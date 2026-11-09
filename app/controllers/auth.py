@@ -44,10 +44,7 @@ def login():
         if usuario:
             login_user(usuario, remember=form.lembrar.data)
             return redirect(_destino_seguro(request.args.get("next")) or url_for("demandas.quadro"))
-        elif usuario_service.aguardando_aprovacao(form.email.data, form.senha.data):
-            flash("Seu cadastro ainda aguarda a aprovação de um Gerente.", "warning")
-        else:
-            flash("E-mail ou senha inválidos.", "danger")
+        flash("E-mail ou senha inválidos.", "danger")
     return render_template("auth/login.html", form=form)
 
 
@@ -58,9 +55,12 @@ def cadastro():
     form = CadastroForm()
     if form.validate_on_submit():
         try:
-            usuario_service.autocadastrar(form.nome.data, form.email.data, form.senha.data, form.divisao.data)
-            flash("Cadastro enviado! Você poderá entrar assim que um Gerente aprovar o acesso.", "success")
-            return redirect(url_for("auth.login"))
+            usuario = usuario_service.autocadastrar(
+                form.nome.data, form.email.data, form.senha.data, form.divisao.data
+            )
+            login_user(usuario)
+            flash("Cadastro realizado! Bem-vindo(a) à Esteira de Demandas.", "success")
+            return redirect(url_for("demandas.quadro"))
         except RegraNegocioError as erro:
             flash(erro.mensagem, "danger")
     return render_template("auth/cadastro.html", form=form)

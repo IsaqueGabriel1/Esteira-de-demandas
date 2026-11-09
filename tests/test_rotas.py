@@ -100,7 +100,7 @@ def test_nao_desativa_ultimo_gerente(client, login, usuarios):
         usuario_service.atualizar(g, g, g.nome, g.email, "CHEFE", ativo=True)
 
 
-def test_autocadastro_cria_usuario_inativo_ate_aprovacao(client, usuarios):
+def test_autocadastro_entra_direto_como_usuario_comum(client, usuarios):
     from app.models import Usuario
     from app.services.perfis import Perfil
 
@@ -110,10 +110,11 @@ def test_autocadastro_cria_usuario_inativo_ate_aprovacao(client, usuarios):
     })
     assert resposta.status_code == 302
     novo = Usuario.query.filter_by(email="nova@teste.gov.br").one()
-    assert novo.perfil == Perfil.USUARIO and not novo.ativo and novo.divisao == "GGO"
+    assert novo.perfil == Perfil.USUARIO and novo.ativo and novo.divisao == "GGO"
 
-    resposta = client.post("/login", data={"email": "nova@teste.gov.br", "senha": "senha-segura-123"})
-    assert "aguarda a aprovação".encode() in resposta.data
+    assert "/quadro" in resposta.headers["Location"]
+    assert client.get("/quadro").status_code == 200
+    assert client.get("/demandas/nova").status_code == 403  # sem poderes de gestor
 
 
 def test_autocadastro_rejeita_email_existente(client, usuarios):

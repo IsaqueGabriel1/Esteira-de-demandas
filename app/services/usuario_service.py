@@ -45,19 +45,13 @@ def definir_propria_divisao(usuario, divisao):
     db.session.commit()
 
 
-def aguardando_aprovacao(email, senha):
-    """True se e-mail e senha conferem, mas a conta ainda está inativa."""
-    usuario = Usuario.query.filter_by(email=_normalizar_email(email)).first()
-    return bool(usuario and not usuario.ativo and usuario.verificar_senha(senha or ""))
-
-
 def autocadastrar(nome, email, senha, divisao):
-    """Cadastro feito pela própria pessoa: sempre Usuário Comum e inativo,
-    até que um Gerente ative a conta em Usuários."""
+    """Cadastro feito pela própria pessoa: já entra no sistema, sempre como
+    Usuário Comum, até que um Gerente altere o perfil em Usuários."""
     nome, email = _validar_dados(nome, email, Perfil.USUARIO)
     divisao = _validar_divisao(divisao)
     _validar_senha(senha)
-    usuario = Usuario(nome=nome, email=email, perfil=Perfil.USUARIO, divisao=divisao, ativo=False)
+    usuario = Usuario(nome=nome, email=email, perfil=Perfil.USUARIO, divisao=divisao, ativo=True)
     usuario.definir_senha(senha)
     db.session.add(usuario)
     db.session.commit()
