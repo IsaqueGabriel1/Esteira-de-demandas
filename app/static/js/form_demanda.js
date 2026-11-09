@@ -24,6 +24,22 @@
   $atribuido.on('change', sincronizarApoio);
   sincronizarApoio();
 
+  // Divisões (apenas exibição): vêm do data-divisao das opções selecionadas
+  function divisoesSelecionadas($select) {
+    var divisoes = [];
+    $select.find('option:selected').each(function () {
+      var d = $(this).data('divisao') || ($(this).val() && $(this).val() !== '0' ? 'Não informada' : '');
+      if (d && divisoes.indexOf(d) === -1) { divisoes.push(d); }
+    });
+    return divisoes.join(', ');
+  }
+  function atualizarDivisoes() {
+    $('#divisao-responsavel').val(divisoesSelecionadas($atribuido));
+    $('#divisao-apoio').val(divisoesSelecionadas($apoio));
+  }
+  $atribuido.add($apoio).on('change', atualizarDivisoes);
+  atualizarDivisoes();
+
   // P = G × U × T (apenas exibição; o valor oficial é calculado no servidor)
   function recalcular() {
     var v = $('.peso-gut').map(function () { return parseInt($(this).val(), 10) || 0; }).get();

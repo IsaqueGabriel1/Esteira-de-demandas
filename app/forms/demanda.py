@@ -43,13 +43,18 @@ class DemandaForm(FlaskForm):
         """Preenche as opções. Todos os usuários aparecem; os que o usuário logado
         não pode atribuir ficam desabilitados (a regra é validada de novo no back-end)."""
         self.eixo_id.choices = [(0, "Selecione...")] + [(e.id, e.rotulo) for e in eixos]
+        # data-divisao alimenta os campos "Divisão responsável" e "Divisão de apoio" (form_demanda.js).
         opcoes = [(0, "— Não atribuir agora —", {})]
         for u in usuarios:
             rotulo = f"{u.nome} ({u.perfil_rotulo})"
-            render_kw = {} if permissoes.pode_atribuir(usuario_logado.perfil, u.perfil) else {"disabled": True}
+            render_kw = {"data-divisao": u.divisao or ""}
+            if not permissoes.pode_atribuir(usuario_logado.perfil, u.perfil):
+                render_kw["disabled"] = True
             opcoes.append((u.id, rotulo, render_kw))
         self.atribuido_id.choices = opcoes
-        self.apoio_ids.choices = [(u.id, f"{u.nome} ({u.perfil_rotulo})") for u in usuarios]
+        self.apoio_ids.choices = [
+            (u.id, f"{u.nome} ({u.perfil_rotulo})", {"data-divisao": u.divisao or ""}) for u in usuarios
+        ]
         return self
 
     def validate_termino(self, campo):
