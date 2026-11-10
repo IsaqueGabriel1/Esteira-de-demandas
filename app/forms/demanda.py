@@ -2,8 +2,7 @@ from flask_wtf import FlaskForm
 from wtforms import DateField, SelectField, SelectMultipleField, StringField, TextAreaField
 from wtforms.validators import DataRequired, Length, Optional, ValidationError
 
-from ..services import permissoes
-from ..services.divisoes import Divisao
+from ..services import divisao_service, permissoes
 
 OPCOES_PESO = [(0, "—")] + [(i, str(i)) for i in range(1, 6)]
 
@@ -18,11 +17,7 @@ def _int_ou_zero(valor):
 class DemandaForm(FlaskForm):
     eixo_id = SelectField("Eixo", coerce=_int_ou_zero, validators=[DataRequired(message="Selecione o eixo.")])
     acao = TextAreaField("Ação", validators=[DataRequired(message="Descreva a ação a ser realizada.")])
-    divisao = SelectField(
-        "Divisão",
-        choices=[("", "Selecione...")] + [(d, d) for d in Divisao.TODAS],
-        validators=[DataRequired(message="Selecione a divisão.")],
-    )
+    divisao = SelectField("Divisão", validators=[DataRequired(message="Selecione a divisão.")])
     produto = TextAreaField(
         "Produto / Entrega", validators=[DataRequired(message="Descreva o produto ou entrega esperada.")]
     )
@@ -38,6 +33,12 @@ class DemandaForm(FlaskForm):
     gravidade = SelectField("Gravidade (G)", coerce=_int_ou_zero, choices=OPCOES_PESO)
     urgencia = SelectField("Urgência (U)", coerce=_int_ou_zero, choices=OPCOES_PESO)
     tendencia = SelectField("Tendência (T)", coerce=_int_ou_zero, choices=OPCOES_PESO)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Divisões ativas para demandas (cadastradas pelo Administrador em Divisões)
+        siglas = divisao_service.siglas_para_demandas(atual=getattr(kwargs.get("obj"), "divisao", None))
+        self.divisao.choices = [("", "Selecione...")] + [(s, s) for s in siglas]
 
     def configurar(self, usuario_logado, eixos, usuarios):
         """Preenche as opções. Todos os usuários aparecem; os que o usuário logado

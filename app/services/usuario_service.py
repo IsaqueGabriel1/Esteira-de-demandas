@@ -3,8 +3,7 @@ from flask import current_app
 
 from ..extensions import db
 from ..models import Usuario
-from . import permissoes
-from .divisoes import DivisaoUsuario
+from . import divisao_service, permissoes
 from .erros import PermissaoNegada, RegraNegocioError
 from .perfis import Perfil
 
@@ -32,16 +31,8 @@ def precisa_informar_divisao(usuario):
     return not usuario.divisao and not eh_administrador(usuario)
 
 
-def _validar_divisao(divisao, obrigatoria=True):
-    if not divisao and not obrigatoria:
-        return None
-    if divisao not in DivisaoUsuario.TODAS:
-        raise RegraNegocioError("Selecione a divisão: " + ", ".join(DivisaoUsuario.TODAS) + ".")
-    return divisao
-
-
 def definir_propria_divisao(usuario, divisao):
-    usuario.divisao = _validar_divisao(divisao)
+    usuario.divisao = divisao_service.validar_para_usuario(divisao, atual=usuario.divisao)
     db.session.commit()
 
 
@@ -49,7 +40,7 @@ def autocadastrar(nome, email, senha, divisao):
     """Cadastro feito pela própria pessoa: já entra no sistema, sempre como
     Usuário Comum, até que um Gerente altere o perfil em Usuários."""
     nome, email = _validar_dados(nome, email, Perfil.USUARIO)
-    divisao = _validar_divisao(divisao)
+    divisao = divisao_service.validar_para_usuario(divisao)
     _validar_senha(senha)
     usuario = Usuario(nome=nome, email=email, perfil=Perfil.USUARIO, divisao=divisao, ativo=True)
     usuario.definir_senha(senha)
@@ -102,7 +93,7 @@ def criar(admin, nome, email, perfil, senha, divisao=None):
     """Sem divisão, o próprio usuário a informa no primeiro acesso."""
     _exigir_admin(admin)
     nome, email = _validar_dados(nome, email, perfil)
-    divisao = _validar_divisao(divisao, obrigatoria=False)
+    divisao = divisao_service.validar_para_usuario(divisao, obrigatoria=False)
     _validar_senha(senha)
     usuario = Usuario(nome=nome, email=email, perfil=perfil, divisao=divisao, ativo=True)
     usuario.definir_senha(senha)
@@ -114,7 +105,7 @@ def criar(admin, nome, email, perfil, senha, divisao=None):
 def atualizar(admin, usuario, nome, email, perfil, ativo=True, nova_senha=None, divisao=None):
     _exigir_admin(admin)
     nome, email = _validar_dados(nome, email, perfil, ignorar_id=usuario.id)
-    divisao = _validar_divisao(divisao, obrigatoria=False)
+    divisao = divisao_service.validar_para_usuario(divisao, obrigatoria=False, atual=usuario.divisao)
     deixa_de_ser_gerente_ativo = usuario.perfil == Perfil.GERENTE and (perfil != Perfil.GERENTE or not ativo)
     if deixa_de_ser_gerente_ativo and _gerentes_ativos(excluir_id=usuario.id) == 0:
         raise RegraNegocioError("O sistema precisa ter pelo menos um Gerente ativo.")

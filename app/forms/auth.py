@@ -2,9 +2,13 @@ from flask_wtf import FlaskForm
 from wtforms import BooleanField, PasswordField, SelectField, StringField
 from wtforms.validators import DataRequired, Email, EqualTo, Length
 
-from ..services.divisoes import DivisaoUsuario
+from ..services import divisao_service
 
-OPCOES_DIVISAO = [("", "Selecione...")] + [(d, d) for d in DivisaoUsuario.TODAS]
+
+def opcoes_divisao_usuario(obj=None, vazio="Selecione..."):
+    """Divisões ativas para usuários (cadastradas pelo Administrador em Divisões)."""
+    siglas = divisao_service.siglas_para_usuarios(atual=getattr(obj, "divisao", None))
+    return [("", vazio)] + [(s, s) for s in siglas]
 
 
 class LoginForm(FlaskForm):
@@ -28,7 +32,7 @@ class CadastroForm(FlaskForm):
     email = StringField(
         "E-mail", validators=[DataRequired(message="Informe o e-mail."), Email(message="E-mail inválido."), Length(max=120)]
     )
-    divisao = SelectField("Divisão", choices=OPCOES_DIVISAO, validators=[DataRequired(message="Selecione a divisão.")])
+    divisao = SelectField("Divisão", validators=[DataRequired(message="Selecione a divisão.")])
     senha = PasswordField(
         "Senha", validators=[DataRequired(message="Informe a senha."), Length(min=8, message="Mínimo de 8 caracteres.")]
     )
@@ -36,6 +40,14 @@ class CadastroForm(FlaskForm):
         "Confirme a senha", validators=[EqualTo("senha", message="As senhas não conferem.")]
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.divisao.choices = opcoes_divisao_usuario()
+
 
 class MinhaDivisaoForm(FlaskForm):
-    divisao = SelectField("Divisão", choices=OPCOES_DIVISAO, validators=[DataRequired(message="Selecione a divisão.")])
+    divisao = SelectField("Divisão", validators=[DataRequired(message="Selecione a divisão.")])
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.divisao.choices = opcoes_divisao_usuario(kwargs.get("obj"))

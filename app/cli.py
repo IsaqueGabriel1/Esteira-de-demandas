@@ -3,6 +3,7 @@ import click
 
 from .extensions import db
 from .models import Eixo, Usuario
+from .services import divisao_service
 from .services.perfis import Perfil
 
 EIXOS_PADRAO = [
@@ -28,9 +29,10 @@ def carregar_eixos():
 def registrar_comandos(app):
     @app.cli.command("seed")
     def seed():
-        """Carga inicial: os 6 eixos e um Gerente administrador (se ainda não existir)."""
+        """Carga inicial: os 6 eixos, as divisões padrão e um Gerente administrador (se ainda não existirem)."""
         criados = carregar_eixos()
         click.echo(f"Eixos: {criados} criado(s).")
+        click.echo(f"Divisões: {divisao_service.carregar_padrao()} criada(s).")
 
         if Usuario.query.filter_by(perfil=Perfil.GERENTE).first():
             click.echo("Gerente: já existe, nada a fazer.")

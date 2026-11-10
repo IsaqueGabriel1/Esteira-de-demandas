@@ -309,3 +309,34 @@ def test_pasta_da_rede_e_opcional_e_registrada_na_edicao(usuarios, nova_demanda,
                                          "divisao": d.divisao, "pasta_rede": caminho})
     assert d.pasta_rede == caminho
     assert any("pasta da rede" in h.descricao for h in d.historico)
+
+
+def test_regras_do_cadastro_de_divisoes(app, db, usuarios):
+    from app.models import Usuario
+    from app.services import divisao_service as svc
+    from app.services.erros import PermissaoNegada, RegraNegocioError
+
+    with pytest.raises(PermissaoNegada):
+        svc.criar(usuarios["gerente"], "NOVA")  # Gerente comum não é o Administrador
+
+    admin = Usuario(nome="Administrador", email=app.config["ADMIN_EMAIL"], perfil="GERENTE", ativo=True)
+    admin.definir_senha("senha-segura-123")
+    db.session.add(admin)
+    db.session.commit()
+
+    nova = svc.criar(admin, "  nova  sigla ", para_usuarios=False, para_demandas=True)
+    assert nova.sigla == "NOVA SIGLA"
+    assert "NOVA SIGLA" in svc.siglas_para_demandas() and "NOVA SIGLA" not in svc.siglas_para_usuarios()
+
+    with pytest.raises(RegraNegocioError):
+        svc.criar(admin, "nova sigla")  # duplicada
+    with pytest.raises(RegraNegocioError):
+        svc.criar(admin, "")
+    with pytest.raises(RegraNegocioError):
+        svc.criar(admin, "X" * 21)
+    with pytest.raises(RegraNegocioError):
+        svc.criar(admin, "SEM USO", para_usuarios=False, para_demandas=False)
+
+    svc.atualizar(admin, nova, para_usuarios=False, para_demandas=True, ativa=False)
+    assert "NOVA SIGLA" not in svc.siglas_para_demandas()
+    assert "NOVA SIGLA" in svc.siglas_para_demandas(atual="NOVA SIGLA")

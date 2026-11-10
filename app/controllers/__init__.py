@@ -7,12 +7,14 @@ from ..services.erros import PermissaoNegada
 def registrar_blueprints(app):
     from .auth import bp as auth_bp
     from .demandas import bp as demandas_bp
+    from .divisoes import bp as divisoes_bp
     from .indicadores import bp as indicadores_bp
     from .usuarios import bp as usuarios_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(demandas_bp)
     app.register_blueprint(usuarios_bp)
+    app.register_blueprint(divisoes_bp)
     app.register_blueprint(indicadores_bp)
 
     def _quer_json():

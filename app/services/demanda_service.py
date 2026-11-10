@@ -12,8 +12,7 @@ from sqlalchemy import or_
 from ..extensions import db
 from ..models import Demanda, Eixo, HistoricoDemanda, TipoEvento, Usuario, demanda_apoio
 from ..models.base import agora
-from . import gut, permissoes
-from .divisoes import Divisao
+from . import divisao_service, gut, permissoes
 from .erros import PermissaoNegada, RegraNegocioError
 from .perfis import Perfil
 from .fluxo import Acao, Status, acao_por_arraste, proximo_status, transicao_permitida
@@ -66,12 +65,6 @@ def _buscar_usuario_ativo(usuario_id, papel="usuário"):
     if not usuario or not usuario.ativo:
         raise RegraNegocioError(f"O {papel} selecionado não existe ou está inativo.")
     return usuario
-
-
-def _validar_divisao(valor):
-    if valor not in Divisao.TODAS:
-        raise RegraNegocioError("Selecione a divisão: " + ", ".join(Divisao.TODAS) + ".")
-    return valor
 
 
 def _texto_opcional(valor):
@@ -245,7 +238,7 @@ def criar(usuario, dados):
     eixo = _buscar_eixo(dados.get("eixo_id"))
     acao = _texto_obrigatorio(dados.get("acao"), "Ação")
     produto = _texto_obrigatorio(dados.get("produto"), "Produto / Entrega")
-    divisao = _validar_divisao(dados.get("divisao"))
+    divisao = divisao_service.validar_para_demanda(dados.get("divisao"))
     pasta_rede = _texto_opcional(dados.get("pasta_rede"))
     inicio, termino = dados.get("inicio"), dados.get("termino")
     _validar_datas(inicio, termino)
@@ -285,7 +278,7 @@ def editar(usuario, demanda, dados):
     eixo = _buscar_eixo(dados.get("eixo_id"))
     acao = _texto_obrigatorio(dados.get("acao"), "Ação")
     produto = _texto_obrigatorio(dados.get("produto"), "Produto / Entrega")
-    divisao = _validar_divisao(dados.get("divisao"))
+    divisao = divisao_service.validar_para_demanda(dados.get("divisao"), atual=demanda.divisao)
     pasta_rede = _texto_opcional(dados.get("pasta_rede"))
     inicio, termino = dados.get("inicio"), dados.get("termino")
     _validar_datas(inicio, termino)

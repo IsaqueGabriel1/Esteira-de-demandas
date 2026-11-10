@@ -162,3 +162,86 @@ def test_gerente_define_divisao_do_usuario(client, login, usuarios):
     })
     assert resposta.status_code == 302
     assert alvo.divisao == "GGO"
+
+
+# ---------------------------------------------------------------------------
+# Divisões (somente o Administrador)
+# ---------------------------------------------------------------------------
+
+# O navegador sempre envia os pesos GUT ("0" = em branco)
+SEM_GUT = {"gravidade": 0, "urgencia": 0, "tendencia": 0}
+
+
+def _criar_admin(app, db):
+    from app.models import Usuario
+    from app.services.perfis import Perfil
+
+    admin = Usuario(nome="Administrador", email=app.config["ADMIN_EMAIL"], perfil=Perfil.GERENTE, ativo=True)
+    admin.definir_senha("senha-segura-123")
+    db.session.add(admin)
+    db.session.commit()
+    return admin
+
+
+def test_somente_administrador_acessa_divisoes(app, db, client, login, usuarios):
+    login(usuarios["gerente"])  # Gerente que não é o Administrador
+    assert client.get("/divisoes/").status_code == 403
+    assert client.post("/divisoes/nova", data={"sigla": "XPTO", "para_usuarios": "y"}).status_code == 403
+    assert b"/divisoes/" not in client.get("/quadro").data
+    client.post("/logout")
+
+    login(_criar_admin(app, db))
+    resposta = client.get("/divisoes/")
+    assert resposta.status_code == 200
+    assert b"GGO/DPO/DIO" in resposta.data
+    assert b"/divisoes/" in client.get("/quadro").data
+
+
+def test_divisao_nova_aparece_no_cadastro_e_nas_demandas(app, db, client, login, usuarios, eixo):
+    from app.models import Demanda
+
+    login(_criar_admin(app, db))
+    resposta = client.post("/divisoes/nova", data={"sigla": " sgi ", "para_usuarios": "y", "para_demandas": "y", "ativa": "y"})
+    assert resposta.status_code == 302
+    assert b'value="SGI"' in client.get("/demandas/nova").data
+
+    resposta = client.post("/demandas/nova", data={"eixo_id": eixo.id, "acao": "x", "produto": "y", "divisao": "SGI", **SEM_GUT})
+    assert resposta.status_code == 302
+    assert Demanda.query.one().divisao == "SGI"
+    client.post("/logout")
+
+    assert b'value="SGI"' in client.get("/cadastro").data
+    resposta = client.post("/cadastro", data={
+        "nome": "Nova Pessoa", "email": "nova@teste.gov.br", "divisao": "SGI",
+        "senha": "senha-segura-123", "confirmacao": "senha-segura-123",
+    })
+    assert resposta.status_code == 302
+
+
+def test_divisao_respeita_onde_aparece(app, db, client, login):
+    login(_criar_admin(app, db))
+    client.post("/divisoes/nova", data={"sigla": "SO-DEMANDA", "para_demandas": "y", "ativa": "y"})
+    assert b'value="SO-DEMANDA"' in client.get("/demandas/nova").data
+    assert b'value="SO-DEMANDA"' not in client.get("/usuarios/novo").data
+    # As combinações padrão são só de demanda; SR é só de usuário
+    assert b'value="DIO/DPO"' not in client.get("/usuarios/novo").data
+    assert b'value="SR"' not in client.get("/demandas/nova").data
+
+
+def test_divisao_desativada_some_das_opcoes_mas_permanece_nos_registros(app, db, client, login, usuarios, nova_demanda):
+    from app.models import Divisao
+
+    d = nova_demanda(usuarios["gerente"], divisao="DPO/DIO")
+    login(_criar_admin(app, db))
+    divisao = Divisao.query.filter_by(sigla="DPO/DIO").one()
+    resposta = client.post(f"/divisoes/{divisao.id}/editar", data={"para_demandas": "y"})  # sem "ativa"
+    assert resposta.status_code == 302 and divisao.ativa is False
+
+    assert b'value="DPO/DIO"' not in client.get("/demandas/nova").data
+    # A demanda que já usava a divisão continua editável sem precisar trocá-la
+    assert b'value="DPO/DIO"' in client.get(f"/demandas/{d.id}/editar").data
+    resposta = client.post(f"/demandas/{d.id}/editar", data={
+        "eixo_id": d.eixo_id, "acao": "Ação alterada", "produto": d.produto, "divisao": "DPO/DIO", **SEM_GUT,
+    })
+    assert resposta.status_code == 302
+    assert d.acao == "Ação alterada" and d.divisao == "DPO/DIO"

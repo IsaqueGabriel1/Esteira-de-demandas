@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import campo %}
+{% block titulo %}{{ 'Editar divisão' if divisao else 'Nova divisão' }}{% endblock %}
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-md-8 col-lg-6">
+    <h1 class="h4 mb-3">{{ 'Editar divisão ' ~ divisao.sigla if divisao else 'Nova divisão' }}</h1>
+    <div class="card"><div class="card-body">
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+        {% if divisao %}
+        <div class="mb-3">
+          <label class="form-label" for="sigla">Sigla</label>
+          <input type="text" id="sigla" class="form-control bg-body-tertiary" value="{{ divisao.sigla }}" readonly>
+          <div class="form-text">A sigla não pode ser alterada, pois já pode estar gravada em usuários e demandas. Para deixar de usá-la, desative a divisão.</div>
+        </div>
+        {% else %}
+        {{ campo(form.sigla) }}
+        {% endif %}
+
+        <fieldset class="mb-3">
+          <legend class="form-label fs-6 mb-1">Onde aparece</legend>
+          <div class="form-check">
+            {{ form.para_usuarios(class="form-check-input") }} {{ form.para_usuarios.label(class="form-check-label") }}
+            <div class="form-text mt-0">Criação de conta, Usuários e "Minha divisão".</div>
+          </div>
+          <div class="form-check">
+            {{ form.para_demandas(class="form-check-input") }} {{ form.para_demandas.label(class="form-check-label") }}
+            <div class="form-text mt-0">Criação e edição de demandas.</div>
+          </div>
+        </fieldset>
+
+        {% if divisao %}
+        <div class="form-check form-switch mb-1">
+          {{ form.ativa(class="form-check-input") }} {{ form.ativa.label(class="form-check-label") }}
+        </div>
+        <div class="form-text mb-3">Inativa, a divisão some das opções, mas usuários e demandas que já a usam continuam com ela.</div>
+        {% else %}
+        <input type="hidden" name="ativa" value="y">
+        {% endif %}
+
+        <button class="btn btn-primary">Salvar</button>
+        <a href="{{ url_for('divisoes.lista') }}" class="btn btn-link">Cancelar</a>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

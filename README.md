@@ -27,7 +27,7 @@ Esse é o Gerente administrador: pelo menu **Usuários** ele cadastra os demais.
 
 Na inicialização o container executa automaticamente:
 1. `flask db upgrade` – cria/atualiza as tabelas;
-2. `flask seed` – cadastra os 6 eixos e o Gerente administrador (só se ainda não existirem).
+2. `flask seed` – cadastra os 6 eixos, as divisões padrão e o Gerente administrador (só se ainda não existirem).
 
 Em desenvolvimento o código é montado como volume: ao salvar um arquivo no VS Code, o Flask recarrega sozinho.
 
@@ -85,8 +85,11 @@ Todas as bibliotecas de interface (Bootstrap, jQuery, Select2, SortableJS, Chart
 | Aprovar / devolver entrega | ✅ | ✅ (exceto a própria) | ❌ |
 | Ver demandas | todas | todas | só as suas e as de apoio |
 | Gerenciar usuários | ✅ | ❌ | ❌ |
+| Gerenciar divisões | só o Administrador¹ | ❌ | ❌ |
 
 O perfil **Gestor do Plano** tem exatamente os mesmos poderes do Chefe de Divisão.
+
+¹ O **Administrador** é a conta do `ADMIN_EMAIL` do `.env` (não qualquer Gerente).
 
 O campo "Usuário atribuído" lista todos os usuários; os que o perfil logado não pode atribuir aparecem desabilitados, e a regra é **validada novamente no back-end** (`app/services/permissoes.py`).
 
@@ -103,6 +106,11 @@ Qualquer status não final → cancelar (motivo) → Cancelada
 - Demanda com término vencido e não finalizada é destacada como **Atrasada**.
 - No quadro, arrastar o card só é permitido para: aceitar, enviar para revisão e aprovar. Ações que pedem texto (recusar, devolver, cancelar, atribuir) ficam na tela da demanda.
 
+### Divisões
+- Cadastradas pelo Administrador no menu **Divisões**. Cada divisão indica onde aparece: no **cadastro de usuários** (criação de conta, Usuários e "Minha divisão") e/ou nas **demandas** (criação e edição).
+- Padrão: DIO, DPO e GGO em ambos; SR só para usuários; DIO/DPO, DPO/DIO e GGO/DPO/DIO só nas demandas.
+- A sigla não pode ser alterada nem excluída, pois usuários e demandas a guardam como texto. Uma divisão **inativa** some das opções, mas quem já a usa continua com ela.
+
 ### Matriz GUT
 - G, U e T: inteiros de 1 a 5. **P = G × U × T** (1 a 125), calculado pelo sistema.
 - Faixas: **Baixa** 1–27 · **Média** 28–63 · **Alta** 64–125 (ajustáveis em `app/services/gut.py`).
@@ -118,14 +126,15 @@ app/
   __init__.py          # create_app (application factory)
   extensions.py        # db, migrate, login_manager, csrf
   cli.py               # comandos: flask seed, flask criar-usuario
-  models/              # M — Usuario, Eixo, Demanda, HistoricoDemanda
+  models/              # M — Usuario, Eixo, Divisao, Demanda, HistoricoDemanda
   services/            # regras de negócio
     permissoes.py      #   matriz de permissões (puro)
     fluxo.py           #   máquina de estados (puro)
     gut.py             #   cálculo e faixas GUT (puro)
     demanda_service.py #   criação, atribuição, fluxo, consultas
+    divisao_service.py #   cadastro de divisões e opções dos formulários
     usuario_service.py, indicadores_service.py, exportacao_service.py
-  controllers/         # C — blueprints: auth, demandas, usuarios, indicadores
+  controllers/         # C — blueprints: auth, demandas, usuarios, divisoes, indicadores
   forms/               # Flask-WTF (validação + CSRF)
   templates/           # V — Jinja2
   static/              # css, js e vendor/ (bibliotecas locais)

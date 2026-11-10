@@ -16,7 +16,7 @@ class Usuario(UserMixin, db.Model):
     perfil = db.Column(db.String(20), nullable=False, default=Perfil.USUARIO)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
     # Obrigatória para todos menos o Administrador; quem não tiver informa no próximo acesso.
-    divisao = db.Column(db.String(10), nullable=True)
+    divisao = db.Column(db.String(20), nullable=True)
     criado_em = db.Column(db.DateTime, nullable=False, default=agora)
 
     def definir_senha(self, senha):

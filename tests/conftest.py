@@ -12,11 +12,13 @@ def app():
     from app import create_app
     from app.cli import carregar_eixos
     from app.extensions import db
+    from app.services import divisao_service
 
     app = create_app("testing")
     with app.app_context():
         db.create_all()
         carregar_eixos()
+        divisao_service.carregar_padrao()
         yield app
         db.session.remove()
         db.drop_all()

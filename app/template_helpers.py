@@ -29,6 +29,8 @@ def _data_hora_br(valor):
 
 
 def registrar_helpers(app):
+    from .services.usuario_service import eh_administrador
+
     app.add_template_filter(_data_br, "data_br")
     app.add_template_filter(_data_hora_br, "data_hora_br")
 
@@ -38,6 +40,7 @@ def registrar_helpers(app):
         Acao=Acao,
         Perfil=Perfil,
         permissoes=permissoes,
+        eh_administrador=eh_administrador,
         FAIXAS_GUT=gut.FAIXAS,
         ROTULOS_PESO=gut.ROTULOS_PESO,
     )
