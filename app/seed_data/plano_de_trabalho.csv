@@ -1,0 +1,54 @@
+eixo;acao;produto;divisao
+1;Diagnosticar as fontes e as condições atuais de utilização do balanço hídrico;Diagnóstico e inventário de fontes;DIO
+1;Avaliar a qualidade, a consistência e a completude dos dados necessários;Relatório de qualidade dos dados;DIO
+1;Definir a metodologia e os critérios de aplicação do balanço às análises;Procedimento e critérios técnicos;DPO
+1;Selecionar a área ou bacia para o projeto-piloto;Definição do recorte do piloto;GGO
+1;Montar as camadas e implementar o balanço hídrico piloto;Balanço hídrico piloto;DIO
+1;Validar o piloto em processos reais (validação conjunta);Relatório de validação;DIO/DPO
+1;Estruturar o painel de consulta e a rotina de atualização do balanço;Painel e procedimento de atualização;DIO
+1;Incorporar a consulta ao balanço aos procedimentos de análise;Procedimento atualizado;DPO
+1;Elaborar a proposta de expansão do balanço;Plano de expansão;GGO
+2;Concluir, implantar e avaliar o POP de Análise de Parecer Técnico;POP implantado + avaliação inicial;DPO
+2;Estruturar os procedimentos de DRDH;Fluxo, checklist, orientação e modelos;DPO
+2;Manter a frente contínua do GRAPROHAB;Continuidade e compartilhamento técnico;DPO
+2;Revisar e consolidar os checklists e a documentação técnica mínima;Matriz e checklists revisados;DPO
+2;Elaborar o Manual de Redação e o banco de modelos;Manual + repositório de modelos;DPO
+2;Estruturar o catálogo de condicionantes;Catálogo institucional;DPO
+2;Mapear o fluxo da outorga, as responsabilidades e os pontos de controle;Mapa de fluxo + matriz de responsabilidades;DPO
+2;Identificar divergências procedimentais e emitir orientações técnicas;Matriz de divergências + orientações;DPO
+2;Implantar a matriz de monitoramento dos procedimentos;Matriz de controle de versão e revisão;DPO
+3;Inventariar as bases de dados e os controles satélites e diagnosticar inconsistências;Inventário + diagnóstico das bases;DIO
+3;Realizar a OITIVA das unidades descentralizadas, das áreas internas e dos demandantes externos;Relatório de demandas de dados + catálogo;DIO
+3;Padronizar e centralizar a esteira de pedidos, com registro único de demandas;Fluxo de priorização + registro único;DIO
+3;Diagnosticar e sanear progressivamente a base legada (registros em papel até 2018);Diagnóstico + plano de saneamento do legado;DIO
+3;Definir os critérios de qualidade e validação dos dados;Protocolo de qualidade;DIO
+3;Elaborar o dicionário de dados e as regras de consistência;Dicionário + regras de validação;DIO
+3;Implantar o repositório de dados único, versionado e com acesso controlado;Repositório único em operação;DIO
+3;Sanear as bases prioritárias e inserir os campos faltantes (ex.: nome dos corpos hídricos);Bases saneadas + propostas de melhoria ao SOE;DIO
+3;Estruturar a disponibilização qualificada de bases às áreas (autosserviço);Base corporativa + acesso estruturado;DIO
+3;Estabelecer a rotina permanente de atualização das informações;Procedimento operacional de atualização;DIO
+4;Diagnosticar as necessidades e as limitações dos sistemas utilizados;Diagnóstico dos sistemas;DIO
+4;Inventariar e organizar as ferramentas e soluções utilizadas pela Divisão;Inventário de ferramentas + decisões de backlog;DIO
+4;Levantar as demandas das unidades responsáveis pelas análises;Mapa de demandas funcionais;DIO/DPO
+4;Revisar e documentar as regras de negócio do SOE;Regras de negócio documentadas e validadas;DIO
+4;Definir os requisitos funcionais do sistema e do suporte à decisão;Documento de requisitos funcionais;DIO
+4;Estruturar o backlog priorizado de melhorias;Backlog priorizado;DIO
+4;Acompanhar o desenvolvimento e a implantação das melhorias pela GTI;Registros de acompanhamento;DIO
+4;Realizar os testes e a homologação funcional das entregas;Termos de homologação;DIO
+4;Integrar o balanço hídrico aos mecanismos de suporte à decisão;Integração implantada;DIO
+5;Definir as fronteiras de atendimento entre a DPO e a DIO;Matriz de atendimento e encaminhamento;DPO/DIO
+5;Estruturar a base única de conhecimento e o FAQ;Base de conhecimento + FAQ;DPO/DIO
+5;Capacitar a equipe de atendimento no SOE;Equipe capacitada + guia de uso;DIO
+5;Treinar os usuários quanto ao preenchimento correto no SOE;Treinamentos e material de apoio;DIO
+5;Realizar o Fórum Técnico de Outorgas;Reuniões técnicas e registros;GGO
+5;Promover as capacitações sobre procedimentos, SOE e balanço hídrico;Programa e materiais de capacitação;GGO/DPO/DIO
+5;Registrar dúvidas recorrentes e retroalimentar procedimentos e sistemas;Registro classificado de demandas;DPO/DIO
+6;Estruturar os indicadores da GGO, da DPO e da DIO (fichas e rotinas de apuração);Fichas e rotinas de apuração;GGO
+6;Estruturar a apuração e o reporte dos indicadores oficiais (PPA 6204 e BR — Io);Rotina de apuração dos indicadores oficiais;DIO
+6;Criar os indicadores de produtividade das unidades descentralizadas;Indicadores de produtividade por unidade;DIO
+6;Detalhar e acompanhar o SLA por etapa de status e mapear os gargalos;Painel de SLA + relatório de gargalos;DIO
+6;Implantar o Painel Gerencial da GGO;Painel de acompanhamento;DIO
+6;Emitir o report mensal consolidado da Gerência;Report gerencial mensal;DIO
+6;Automatizar o Relatório de Situação;Relatório automatizado;DIO
+6;Padronizar e automatizar as apresentações gerenciais à Diretoria;Modelo e rotina de apresentações;DIO
+6;Monitorar a qualidade e a disponibilização das bases;Indicadores de qualidade em operação;DIO

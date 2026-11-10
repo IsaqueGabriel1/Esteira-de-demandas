@@ -3,7 +3,8 @@ import click
 
 from .extensions import db
 from .models import Eixo, Usuario
-from .services import divisao_service
+from .services import carga_inicial, divisao_service
+from .services.erros import RegraNegocioError
 from .services.perfis import Perfil
 
 EIXOS_PADRAO = [
@@ -29,29 +30,49 @@ def carregar_eixos():
 def registrar_comandos(app):
     @app.cli.command("seed")
     def seed():
-        """Carga inicial: os 6 eixos, as divisões padrão e um Gerente administrador (se ainda não existirem)."""
+        """Carga inicial: eixos, divisões, Gerente administrador e demandas do Plano de Trabalho.
+
+        Cada parte só é criada se ainda não existir; as demandas, só se a base não tiver nenhuma.
+        """
         criados = carregar_eixos()
         click.echo(f"Eixos: {criados} criado(s).")
         click.echo(f"Divisões: {divisao_service.carregar_padrao()} criada(s).")
 
-        if Usuario.query.filter_by(perfil=Perfil.GERENTE).first():
-            click.echo("Gerente: já existe, nada a fazer.")
+        admin = _garantir_gerente(app)
+        if admin is None:
+            click.echo("ATENÇÃO: defina ADMIN_SENHA (mín. 8 caracteres) no .env para criar o Gerente inicial.")
+            click.echo("Plano de trabalho: não carregado (precisa de um Gerente para registrar a criação).")
             return
+
+        try:
+            criadas = carga_inicial.carregar_plano_trabalho(admin)
+        except RegraNegocioError as erro:
+            raise click.ClickException(str(erro))
+        if criadas:
+            click.echo(f"Plano de trabalho: {criadas} demanda(s) criada(s).")
+        else:
+            click.echo("Plano de trabalho: a base já tem demandas, nada a fazer.")
+
+    def _garantir_gerente(app):
+        """Devolve o Gerente administrador, criando-o pelo .env se ainda não houver nenhum Gerente."""
+        email = (app.config.get("ADMIN_EMAIL") or "").strip().lower()
+        existente = (
+            Usuario.query.filter_by(email=email, perfil=Perfil.GERENTE).first()
+            or Usuario.query.filter_by(perfil=Perfil.GERENTE).order_by(Usuario.id).first()
+        )
+        if existente:
+            click.echo("Gerente: já existe, nada a fazer.")
+            return existente
 
         senha = app.config.get("ADMIN_SENHA")
         if not senha or len(senha) < 8:
-            click.echo("ATENÇÃO: defina ADMIN_SENHA (mín. 8 caracteres) no .env para criar o Gerente inicial.")
-            return
-        admin = Usuario(
-            nome=app.config["ADMIN_NOME"],
-            email=app.config["ADMIN_EMAIL"].strip().lower(),
-            perfil=Perfil.GERENTE,
-            ativo=True,
-        )
+            return None
+        admin = Usuario(nome=app.config["ADMIN_NOME"], email=email, perfil=Perfil.GERENTE, ativo=True)
         admin.definir_senha(senha)
         db.session.add(admin)
         db.session.commit()
         click.echo(f"Gerente criado: {admin.email}")
+        return admin
 
     @app.cli.command("criar-usuario")
     @click.option("--nome", prompt=True)
