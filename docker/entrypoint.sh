@@ -6,7 +6,7 @@ set -e
 echo ">> Aplicando migrações do banco..."
 flask db upgrade
 
-echo ">> Carga inicial (eixos e Gerente administrador)..."
+echo ">> Carga inicial (eixos, divisões, Gerente administrador e plano de trabalho)..."
 flask seed
 
 echo ">> Iniciando: $*"
