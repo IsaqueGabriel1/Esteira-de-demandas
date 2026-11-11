@@ -4,22 +4,21 @@ from flask_login import current_user
 from ..extensions import db
 from ..forms import UsuarioForm
 from ..models import Usuario
-from ..services import usuario_service
+from ..services import permissoes, usuario_service
 from ..services.erros import RegraNegocioError
-from ..services.perfis import Perfil
-from .decoradores import perfil_requerido
+from .decoradores import permissao_requerida
 
 bp = Blueprint("usuarios", __name__, url_prefix="/usuarios")
 
 
 @bp.route("/")
-@perfil_requerido(Perfil.GERENTE)
+@permissao_requerida(permissoes.pode_gerenciar_usuarios)
 def lista():
     return render_template("usuarios/lista.html", usuarios=usuario_service.listar_todos())
 
 
 @bp.route("/novo", methods=["GET", "POST"])
-@perfil_requerido(Perfil.GERENTE)
+@permissao_requerida(permissoes.pode_gerenciar_usuarios)
 def novo():
     form = UsuarioForm()
     if form.validate_on_submit():
@@ -39,7 +38,7 @@ def novo():
 
 
 @bp.route("/<int:usuario_id>/editar", methods=["GET", "POST"])
-@perfil_requerido(Perfil.GERENTE)
+@permissao_requerida(permissoes.pode_gerenciar_usuarios)
 def editar(usuario_id):
     usuario = db.session.get(Usuario, usuario_id) or abort(404)
     form = UsuarioForm(obj=usuario)

@@ -245,3 +245,49 @@ def test_divisao_desativada_some_das_opcoes_mas_permanece_nos_registros(app, db,
     })
     assert resposta.status_code == 302
     assert d.acao == "Ação alterada" and d.divisao == "DPO/DIO"
+
+
+def _admin(app, db):
+    from app.models import Usuario
+    from app.services.perfis import Perfil
+
+    admin = Usuario(nome="Administrador", email=app.config["ADMIN_EMAIL"], perfil=Perfil.GERENTE, ativo=True)
+    admin.definir_senha("senha-segura-123")
+    db.session.add(admin)
+    db.session.commit()
+    return admin
+
+
+def test_tela_de_permissoes_so_para_o_administrador(app, db, client, login, usuarios):
+    login(usuarios["gerente"])
+    assert client.get("/permissoes/").status_code == 403
+    assert client.post("/permissoes/", data={}).status_code == 403
+    assert b"/permissoes/" not in client.get("/quadro").data
+
+    client.post("/logout")
+    login(_admin(app, db))
+    resposta = client.get("/permissoes/")
+    assert resposta.status_code == 200
+    assert "Atribuir a Usuário Comum".encode() in resposta.data
+
+
+def test_desligar_criar_demanda_bloqueia_o_chefe(app, db, client, login, usuarios):
+    from app.models import HistoricoPermissao
+    from app.services import permissao_service, permissoes
+    from app.services.perfis import Perfil
+
+    admin = _admin(app, db)
+    ativas = {k for k, v in permissao_service.matriz().items() if v} - {(Perfil.CHEFE, "criar_demanda")}
+    login(admin)
+    client.post("/permissoes/", data={"ativa": [f"{p}:{c}" for p, c in ativas]})
+    assert HistoricoPermissao.query.count() == 1
+    client.post("/logout")
+
+    login(usuarios["chefe"])
+    assert client.get("/demandas/nova").status_code == 403
+    client.post("/logout")
+    login(usuarios["gerente"])
+    assert client.get("/demandas/nova").status_code == 200
+
+    permissao_service.restaurar_padrao(admin)
+    assert permissoes.pode_criar_demanda(Perfil.CHEFE)

@@ -22,6 +22,10 @@ def app():
         yield app
         db.session.remove()
         db.drop_all()
+    # As permissões alteradas num teste ficam em memória: volta ao padrão para os próximos
+    from app.services import permissoes
+
+    permissoes.configurar({})
 
 
 @pytest.fixture

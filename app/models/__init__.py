@@ -3,6 +3,7 @@ from .demanda import Demanda, demanda_apoio
 from .divisao import Divisao
 from .eixo import Eixo
 from .historico import HistoricoDemanda, TipoEvento
+from .permissao import HistoricoPermissao, PermissaoPerfil
 from .usuario import Usuario
 
-__all__ = ["Demanda", "demanda_apoio", "Divisao", "Eixo", "HistoricoDemanda", "TipoEvento", "Usuario"]
+__all__ = ["Demanda", "demanda_apoio", "Divisao", "Eixo", "HistoricoDemanda", "TipoEvento", "HistoricoPermissao", "PermissaoPerfil", "Usuario"]

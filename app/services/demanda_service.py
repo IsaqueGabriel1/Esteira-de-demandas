@@ -14,7 +14,6 @@ from ..models import Demanda, Eixo, HistoricoDemanda, TipoEvento, Usuario, deman
 from ..models.base import agora
 from . import divisao_service, gut, permissoes
 from .erros import PermissaoNegada, RegraNegocioError
-from .perfis import Perfil
 from .fluxo import Acao, Status, acao_por_arraste, proximo_status, transicao_permitida
 
 TAMANHO_MINIMO_JUSTIFICATIVA = 10
@@ -169,13 +168,11 @@ def _definir_apoios(usuario, demanda, apoio_ids):
 # ---------------------------------------------------------------------------
 
 def _validar_permissao_atribuicao(usuario, destino):
-    if permissoes.pode_atribuir(usuario.perfil, destino.perfil):
+    if permissoes.pode_atribuir(usuario.perfil, destino.perfil, para_si=destino.id == usuario.id):
         return
-    if usuario.perfil in Perfil.GESTORES_RESTRITOS:
-        raise PermissaoNegada(
-            f"O {usuario.perfil_rotulo} só pode atribuir demandas a usuários com perfil Usuário Comum."
-        )
-    raise PermissaoNegada("Você não tem permissão para atribuir demandas.")
+    if not permissoes.pode_atribuir_alguem(usuario.perfil):
+        raise PermissaoNegada("Você não tem permissão para atribuir demandas.")
+    raise PermissaoNegada(f"O {usuario.perfil_rotulo} {permissoes.descrever_atribuicao(usuario.perfil)}.")
 
 
 def _atribuir(usuario, demanda, destino):
@@ -434,7 +431,7 @@ def acoes_disponiveis(usuario, demanda):
         acoes.add(Acao.ENVIAR_REVISAO)
     if status == Status.EM_REVISAO and permissoes.pode_revisar(perfil, eh_atribuido):
         acoes.update({Acao.APROVAR, Acao.DEVOLVER})
-    if permissoes.eh_gestor(perfil) and transicao_permitida(Acao.ATRIBUIR, status):
+    if permissoes.pode_atribuir_alguem(perfil) and transicao_permitida(Acao.ATRIBUIR, status):
         acoes.add(Acao.ATRIBUIR)
     if permissoes.pode_cancelar(perfil) and transicao_permitida(Acao.CANCELAR, status):
         acoes.add(Acao.CANCELAR)
@@ -558,10 +555,11 @@ def minhas(usuario):
             Demanda.apoios.any(Usuario.id == usuario.id), nao_finais
         ).order_by(*ordem).all(),
     }
-    if permissoes.eh_gestor(usuario.perfil):
+    if permissoes.pode_atribuir_alguem(usuario.perfil):
         resultado["recusadas"] = Demanda.query.filter(
             Demanda.status == Status.RECUSADA, Demanda.atribuido_por_id == usuario.id
         ).order_by(*ordem).all()
+    if permissoes.permitido(usuario.perfil, "revisar"):
         revisao = Demanda.query.filter(Demanda.status == Status.EM_REVISAO).order_by(*ordem).all()
         resultado["revisao"] = [
             d for d in revisao if permissoes.pode_revisar(usuario.perfil, _eh_atribuido(usuario, d))

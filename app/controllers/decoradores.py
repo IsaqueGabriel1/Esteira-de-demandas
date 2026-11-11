@@ -17,6 +17,19 @@ def perfil_requerido(*perfis):
     return decorador
 
 
+def permissao_requerida(regra):
+    """Restringe a rota aos perfis para os quais regra(perfil) é verdadeira (além de exigir login)."""
+    def decorador(funcao):
+        @wraps(funcao)
+        @login_required
+        def envoltorio(*args, **kwargs):
+            if not regra(current_user.perfil):
+                abort(403)
+            return funcao(*args, **kwargs)
+        return envoltorio
+    return decorador
+
+
 def administrador_requerido(funcao):
     """Restringe a rota ao Administrador (conta do ADMIN_EMAIL), além de exigir login."""
     from ..services.usuario_service import eh_administrador

@@ -9,6 +9,7 @@ def registrar_blueprints(app):
     from .demandas import bp as demandas_bp
     from .divisoes import bp as divisoes_bp
     from .indicadores import bp as indicadores_bp
+    from .permissoes import bp as permissoes_bp
     from .usuarios import bp as usuarios_bp
 
     app.register_blueprint(auth_bp)
@@ -16,6 +17,14 @@ def registrar_blueprints(app):
     app.register_blueprint(usuarios_bp)
     app.register_blueprint(divisoes_bp)
     app.register_blueprint(indicadores_bp)
+    app.register_blueprint(permissoes_bp)
+
+    @app.before_request
+    def carregar_permissoes():
+        if request.endpoint != "static":
+            from ..services import permissao_service
+
+            permissao_service.carregar()
 
     def _quer_json():
         return request.is_json or request.accept_mimetypes.best == "application/json"

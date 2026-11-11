@@ -49,7 +49,7 @@ class DemandaForm(FlaskForm):
         for u in usuarios:
             rotulo = f"{u.nome} ({u.perfil_rotulo})"
             render_kw = {"data-divisao": u.divisao or ""}
-            if not permissoes.pode_atribuir(usuario_logado.perfil, u.perfil):
+            if not permissoes.pode_atribuir(usuario_logado.perfil, u.perfil, para_si=u.id == usuario_logado.id):
                 render_kw["disabled"] = True
             opcoes.append((u.id, rotulo, render_kw))
         self.atribuido_id.choices = opcoes
