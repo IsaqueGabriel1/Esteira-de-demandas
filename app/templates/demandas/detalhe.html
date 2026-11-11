@@ -197,11 +197,11 @@
         <select name="atribuido_id" class="form-select select2-modal" required>
           <option value="">Selecione...</option>
           {% for u in usuarios %}
-          {% set pode = permissoes.pode_atribuir(current_user.perfil, u.perfil) %}
+          {% set pode = permissoes.pode_atribuir(current_user.perfil, u.perfil, para_si=u.id == current_user.id) %}
           <option value="{{ u.id }}" {{ 'disabled' if not pode }} {{ 'selected' if u.id == demanda.atribuido_id }}>{{ u.nome }} ({{ u.perfil_rotulo }}){{ ' — não permitido' if not pode }}</option>
           {% endfor %}
         </select>
-        {% if current_user.perfil in Perfil.GESTORES_RESTRITOS %}<div class="form-text">{{ current_user.perfil_rotulo }} só pode atribuir a usuários com perfil Usuário Comum.</div>{% endif %}
+        {% set regra_atribuicao = permissoes.descrever_atribuicao(current_user.perfil) %}{% if regra_atribuicao %}<div class="form-text">{{ current_user.perfil_rotulo }} {{ regra_atribuicao }}.</div>{% endif %}
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-link" data-bs-dismiss="modal">Voltar</button>

@@ -340,3 +340,22 @@ def test_regras_do_cadastro_de_divisoes(app, db, usuarios):
     svc.atualizar(admin, nova, para_usuarios=False, para_demandas=True, ativa=False)
     assert "NOVA SIGLA" not in svc.siglas_para_demandas()
     assert "NOVA SIGLA" in svc.siglas_para_demandas(atual="NOVA SIGLA")
+
+
+def test_permissoes_configuradas_valem_no_servico(app, db, usuarios, nova_demanda):
+    import pytest
+
+    from app.services import demanda_service, permissoes
+    from app.services.erros import PermissaoNegada
+    from app.services.perfis import Perfil
+
+    # Liga para o Chefe atribuir a outro Chefe e aprovar a própria entrega
+    permissoes.configurar({(Perfil.CHEFE, "atribuir_" + Perfil.CHEFE): True, (Perfil.CHEFE, "revisar_propria"): True})
+    d = nova_demanda(usuarios["chefe"], atribuido_id=usuarios["chefe2"].id)
+    assert d.atribuido_id == usuarios["chefe2"].id
+    assert permissoes.pode_revisar(Perfil.CHEFE, eh_o_atribuido=True)
+
+    # Desliga a criação para o Gerente
+    permissoes.configurar({(Perfil.GERENTE, "criar_demanda"): False})
+    with pytest.raises(PermissaoNegada):
+        nova_demanda(usuarios["gerente"])

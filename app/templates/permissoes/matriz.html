@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block titulo %}Permissões{% endblock %}
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-0">Permissões</h1>
+    <p class="text-muted small mb-0">Ligue ou desligue cada funcionalidade por perfil. Aceitar, recusar e enviar para revisão continuam sempre com o responsável pela demanda.</p>
+  </div>
+  <form method="post" action="{{ url_for('permissoes.restaurar') }}" onsubmit="return confirm('Voltar todas as permissões para o padrão?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-counterclockwise"></i> Restaurar padrão</button>
+  </form>
+</div>
+
+<form method="post" action="{{ url_for('permissoes.salvar') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="card mb-3">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Funcionalidade</th>
+            {% for perfil in Perfil.TODOS %}<th class="text-center">{{ Perfil.rotulo(perfil) }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for chave, rotulo, grupo in funcionalidades %}
+          {% if loop.first or funcionalidades[loop.index0 - 1][2] != grupo %}
+          <tr class="table-group-divider"><th colspan="{{ Perfil.TODOS|length + 1 }}" class="small text-uppercase text-muted">{{ grupo }}</th></tr>
+          {% endif %}
+          <tr>
+            <td>{{ rotulo }}</td>
+            {% for perfil in Perfil.TODOS %}
+            {% set ativo = matriz[(perfil, chave)] %}
+            <td class="text-center">
+              <div class="form-check form-switch d-inline-block m-0">
+                <input class="form-check-input" type="checkbox" role="switch" name="ativa" value="{{ perfil }}:{{ chave }}"
+                       {{ 'checked' if ativo }} aria-label="{{ rotulo }} — {{ Perfil.rotulo(perfil) }}">
+              </div>
+              {% if ativo != padrao(perfil, chave) %}<div class="small text-warning" title="Diferente do padrão">alterado</div>{% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="d-flex justify-content-end mb-4">
+    <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Salvar permissões</button>
+  </div>
+</form>
+
+<div class="card">
+  <div class="card-header bg-white"><i class="bi bi-clock-history"></i> Últimas alterações</div>
+  <ul class="list-group list-group-flush small">
+    {% for h in historico %}
+    <li class="list-group-item">
+      {{ h.criado_em|data_hora_br }} — <strong>{{ h.usuario.nome }}</strong>
+      {{ 'ligou' if h.depois else 'desligou' }} “{{ rotulos.get(h.chave, h.chave) }}” para {{ Perfil.rotulo(h.perfil) }}.
+    </li>
+    {% else %}
+    <li class="list-group-item text-muted">Nenhuma alteração: todas as permissões estão no padrão.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

@@ -29,8 +29,9 @@
           <div class="row">
             <div class="col-md-6">
               {{ campo(form.atribuido_id) }}
-              {% if current_user.perfil in Perfil.GESTORES_RESTRITOS %}
-              <div class="form-text mt-n2 mb-3">Como {{ current_user.perfil_rotulo }}, você só pode atribuir a usuários com perfil Usuário Comum.</div>
+              {% set regra_atribuicao = permissoes.descrever_atribuicao(current_user.perfil) %}
+              {% if regra_atribuicao %}
+              <div class="form-text mt-n2 mb-3">Como {{ current_user.perfil_rotulo }}, você {{ regra_atribuicao }}.</div>
               {% endif %}
               {% if demanda and demanda.atribuido %}
               <div class="form-text mt-n2 mb-3">Trocar o responsável reinicia o aceite (status “Aguardando aceite”).</div>

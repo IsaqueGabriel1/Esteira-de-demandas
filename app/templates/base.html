@@ -34,6 +34,7 @@
         {% endif %}
         {% if eh_administrador(current_user) %}
         <li class="nav-item"><a class="nav-link {{ 'active' if ep.startswith('divisoes') }}" href="{{ url_for('divisoes.lista') }}"><i class="bi bi-diagram-3"></i> Divisões</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if ep.startswith('permissoes') }}" href="{{ url_for('permissoes.matriz') }}"><i class="bi bi-shield-lock"></i> Permissões</a></li>
         {% endif %}
       </ul>
       {% if permissoes.pode_criar_demanda(current_user.perfil) %}

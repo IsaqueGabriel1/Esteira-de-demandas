@@ -87,9 +87,11 @@ Todas as bibliotecas de interface (Bootstrap, jQuery, Select2, SortableJS, Chart
 | Gerenciar usuários | ✅ | ❌ | ❌ |
 | Gerenciar divisões | só o Administrador¹ | ❌ | ❌ |
 
-O perfil **Gestor do Plano** tem exatamente os mesmos poderes do Chefe de Divisão.
+O perfil **Gestor do Plano** tem os mesmos poderes do Chefe de Divisão e, além disso, pode atribuir demandas **a si mesmo** (aceite automático). Como qualquer gestor, não pode aprovar a própria entrega.
 
 ¹ O **Administrador** é a conta do `ADMIN_EMAIL` do `.env` (não qualquer Gerente).
+
+A tabela acima é o **padrão**. O Administrador pode ligar/desligar cada funcionalidade por perfil no menu **Permissões** (inclusive a quem cada perfil pode atribuir e se pode aprovar a própria entrega); "Restaurar padrão" desfaz tudo e cada alteração fica registrada. Aceitar, recusar e enviar para revisão continuam sempre com o atribuído, e só o Administrador acessa a tela de Permissões e a de Divisões.
 
 O campo "Usuário atribuído" lista todos os usuários; os que o perfil logado não pode atribuir aparecem desabilitados, e a regra é **validada novamente no back-end** (`app/services/permissoes.py`).
 

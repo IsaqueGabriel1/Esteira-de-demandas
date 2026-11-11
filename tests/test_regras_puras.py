@@ -123,3 +123,31 @@ def test_gestor_do_plano_tem_os_mesmos_poderes_do_chefe():
         assert permissoes.pode_revisar(Perfil.GESTOR_PLANO, eh_o_atribuido) == permissoes.pode_revisar(Perfil.CHEFE, eh_o_atribuido)
     assert not permissoes.pode_gerenciar_usuarios(Perfil.GESTOR_PLANO)
     assert not permissoes.pode_atribuir(Perfil.GESTOR_PLANO, Perfil.GERENTE)
+
+
+def test_gestor_do_plano_pode_atribuir_a_si_mas_nao_aprovar():
+    from app.services import permissoes
+    from app.services.perfis import Perfil
+
+    assert permissoes.pode_atribuir(Perfil.GESTOR_PLANO, Perfil.GESTOR_PLANO, para_si=True)
+    assert not permissoes.pode_atribuir(Perfil.GESTOR_PLANO, Perfil.GESTOR_PLANO)
+    assert not permissoes.pode_atribuir(Perfil.CHEFE, Perfil.CHEFE, para_si=True)
+    assert not permissoes.pode_revisar(Perfil.GESTOR_PLANO, eh_o_atribuido=True)
+
+
+def test_padrao_das_permissoes_e_configuracao():
+    from app.services import permissoes
+    from app.services.perfis import Perfil
+
+    assert permissoes.descrever_atribuicao(Perfil.GERENTE) is None
+    assert permissoes.descrever_atribuicao(Perfil.GESTOR_PLANO) == "só pode atribuir a si mesmo ou a usuários com perfil Usuário Comum"
+    assert not permissoes.pode_atribuir_alguem(Perfil.USUARIO)
+
+    permissoes.configurar({(Perfil.USUARIO, "atribuir_a_si"): True, (Perfil.GERENTE, "revisar_propria"): False})
+    try:
+        assert permissoes.pode_atribuir(Perfil.USUARIO, Perfil.USUARIO, para_si=True)
+        assert permissoes.pode_atribuir_alguem(Perfil.USUARIO)
+        assert not permissoes.pode_revisar(Perfil.GERENTE, eh_o_atribuido=True)
+        assert permissoes.pode_revisar(Perfil.GERENTE, eh_o_atribuido=False)
+    finally:
+        permissoes.configurar({})
