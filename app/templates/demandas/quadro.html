@@ -10,7 +10,7 @@
 {% set mostrar_status = false %}
 {% include "partials/_filtros.html" %}
 
-<div class="quadro">
+<div class="quadro" style="grid-template-columns: repeat({{ colunas|length }}, minmax(215px, 1fr));">
   {% for status, demandas in colunas.items() %}
   <section class="coluna coluna-{{ status|lower }}">
     <header class="coluna-cabecalho">

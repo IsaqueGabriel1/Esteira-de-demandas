@@ -265,6 +265,11 @@ def test_quadro_agrupa_por_status(usuarios, nova_demanda):
     assert len(colunas[Status.AGUARDANDO_ACEITE]) == 1
 
 
+def test_quadro_oculta_coluna_a_atribuir_do_usuario_comum(usuarios):
+    assert Status.NOVA not in svc.quadro(usuarios["usuario"])
+    assert Status.NOVA in svc.quadro(usuarios["chefe"])
+
+
 # ---------------- Arrastar e soltar ----------------
 
 def test_arraste_valida_permissao(usuarios, nova_demanda):

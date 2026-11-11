@@ -14,6 +14,7 @@ from ..models import Demanda, Eixo, HistoricoDemanda, TipoEvento, Usuario, deman
 from ..models.base import agora
 from . import divisao_service, gut, permissoes
 from .erros import PermissaoNegada, RegraNegocioError
+from .perfis import Perfil
 from .fluxo import Acao, Status, acao_por_arraste, proximo_status, transicao_permitida
 
 TAMANHO_MINIMO_JUSTIFICATIVA = 10
@@ -529,6 +530,9 @@ def quadro(usuario, filtros=None):
     filtros = dict(filtros or {})
     filtros.pop("status", None)
     colunas = {status: [] for status in Status.COLUNAS_QUADRO}
+    # Usuário Comum não atribui demandas: a coluna "A atribuir" fica oculta para ele
+    if usuario.perfil == Perfil.USUARIO:
+        del colunas[Status.NOVA]
     limite = agora() - timedelta(days=DIAS_CONCLUIDAS_NO_QUADRO)
     for demanda in consultar(usuario, filtros).all():
         if demanda.status not in colunas:
