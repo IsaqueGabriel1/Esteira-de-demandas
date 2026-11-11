@@ -6,7 +6,7 @@ import pytest
 from app.models import TipoEvento
 from app.services import demanda_service as svc
 from app.services.erros import PermissaoNegada, RegraNegocioError
-from app.services.fluxo import Status
+from app.services.fluxo import Acao, Status
 
 
 # ---------------- Criação ----------------
@@ -81,7 +81,7 @@ def test_usuario_comum_nao_atribui(usuarios, nova_demanda):
 
 def test_gerente_atribuindo_a_si_mesmo_aceita_automaticamente(usuarios, nova_demanda):
     d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["gerente"].id)
-    assert d.status == Status.EM_ANDAMENTO
+    assert d.status == Status.NAO_INICIADA
 
 
 # ---------------- Aceite e recusa ----------------
@@ -91,7 +91,22 @@ def test_somente_o_atribuido_aceita(usuarios, nova_demanda):
     with pytest.raises(PermissaoNegada):
         svc.aceitar(usuarios["usuario2"], d)
     svc.aceitar(usuarios["usuario"], d)
+    assert d.status == Status.NAO_INICIADA
+
+
+def test_somente_o_atribuido_inicia(usuarios, nova_demanda):
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
+    with pytest.raises(RegraNegocioError):
+        svc.iniciar(usuarios["usuario"], d)  # precisa aceitar antes
+    svc.aceitar(usuarios["usuario"], d)
+    assert Acao.INICIAR in svc.acoes_disponiveis(usuarios["usuario"], d)
+    with pytest.raises(PermissaoNegada):
+        svc.iniciar(usuarios["usuario2"], d)
+    with pytest.raises(RegraNegocioError):
+        svc.enviar_revisao(usuarios["usuario"], d)  # não pula etapa
+    svc.iniciar(usuarios["usuario"], d)
     assert d.status == Status.EM_ANDAMENTO
+    assert d.historico[0].tipo == TipoEvento.INICIO
 
 
 def test_recusa_exige_justificativa(usuarios, nova_demanda):
@@ -131,6 +146,7 @@ def test_chefe_atribuido_pelo_gerente_tambem_pode_recusar(usuarios, nova_demanda
 def _em_andamento(usuarios, nova_demanda):
     d = nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id)
     svc.aceitar(usuarios["usuario"], d)
+    svc.iniciar(usuarios["usuario"], d)
     return d
 
 
@@ -157,6 +173,7 @@ def test_devolucao_exige_motivo_e_volta_para_andamento(usuarios, nova_demanda):
 def test_chefe_nao_aprova_a_propria_entrega(usuarios, nova_demanda):
     d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["chefe"].id)
     svc.aceitar(usuarios["chefe"], d)
+    svc.iniciar(usuarios["chefe"], d)
     svc.enviar_revisao(usuarios["chefe"], d)
     with pytest.raises(PermissaoNegada):
         svc.aprovar(usuarios["chefe"], d)
@@ -275,7 +292,11 @@ def test_quadro_oculta_coluna_a_atribuir_do_usuario_comum(usuarios):
 def test_arraste_valida_permissao(usuarios, nova_demanda):
     d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
     with pytest.raises(PermissaoNegada):
-        svc.mover_por_arraste(usuarios["usuario2"], d, Status.EM_ANDAMENTO)
+        svc.mover_por_arraste(usuarios["usuario2"], d, Status.NAO_INICIADA)
+    with pytest.raises(RegraNegocioError):
+        svc.mover_por_arraste(usuarios["usuario"], d, Status.EM_ANDAMENTO)  # não pula etapa
+    svc.mover_por_arraste(usuarios["usuario"], d, Status.NAO_INICIADA)
+    assert d.status == Status.NAO_INICIADA
     svc.mover_por_arraste(usuarios["usuario"], d, Status.EM_ANDAMENTO)
     assert d.status == Status.EM_ANDAMENTO
     with pytest.raises(RegraNegocioError):

@@ -182,7 +182,7 @@ def _atribuir(usuario, demanda, destino):
         raise RegraNegocioError(
             f"Não é possível atribuir uma demanda com status '{demanda.status_rotulo}'."
         )
-    if demanda.atribuido_id == destino.id and demanda.status in (Status.AGUARDANDO_ACEITE, Status.EM_ANDAMENTO):
+    if demanda.atribuido_id == destino.id and demanda.status in (Status.AGUARDANDO_ACEITE, Status.NAO_INICIADA, Status.EM_ANDAMENTO):
         return  # nada mudou
 
     anterior = demanda.atribuido
@@ -199,7 +199,7 @@ def _atribuir(usuario, demanda, destino):
 
     if destino.id == usuario.id:
         # Gestor atribuindo a si mesmo: aceite automático
-        demanda.status = Status.EM_ANDAMENTO
+        demanda.status = Status.NAO_INICIADA
         descricao = f"{usuario.nome} assumiu a demanda (aceite automático)."
     else:
         demanda.status = proximo_status(Acao.ATRIBUIR, demanda.status)
@@ -329,6 +329,14 @@ def aceitar(usuario, demanda):
     db.session.commit()
 
 
+def iniciar(usuario, demanda):
+    if not _eh_atribuido(usuario, demanda):
+        raise PermissaoNegada("Somente o usuário atribuído pode iniciar a demanda.")
+    demanda.status = proximo_status(Acao.INICIAR, demanda.status)
+    _registrar(demanda, usuario, TipoEvento.INICIO, f"{usuario.nome} iniciou a demanda.")
+    db.session.commit()
+
+
 def recusar(usuario, demanda, justificativa):
     if not _eh_atribuido(usuario, demanda):
         raise PermissaoNegada("Somente o usuário atribuído pode recusar a demanda.")
@@ -411,6 +419,8 @@ def mover_por_arraste(usuario, demanda, status_destino):
     acao = acao_por_arraste(demanda.status, status_destino)
     if acao == Acao.ACEITAR:
         aceitar(usuario, demanda)
+    elif acao == Acao.INICIAR:
+        iniciar(usuario, demanda)
     elif acao == Acao.ENVIAR_REVISAO:
         enviar_revisao(usuario, demanda)
     elif acao == Acao.APROVAR:
@@ -428,6 +438,8 @@ def acoes_disponiveis(usuario, demanda):
 
     if eh_atribuido and status == Status.AGUARDANDO_ACEITE:
         acoes.update({Acao.ACEITAR, Acao.RECUSAR})
+    if eh_atribuido and status == Status.NAO_INICIADA:
+        acoes.add(Acao.INICIAR)
     if eh_atribuido and status == Status.EM_ANDAMENTO:
         acoes.add(Acao.ENVIAR_REVISAO)
     if status == Status.EM_REVISAO and permissoes.pode_revisar(perfil, eh_atribuido):

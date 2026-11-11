@@ -81,6 +81,8 @@ def test_fluxo_principal():
     s = proximo_status(Acao.ATRIBUIR, s)
     assert s == Status.AGUARDANDO_ACEITE
     s = proximo_status(Acao.ACEITAR, s)
+    assert s == Status.NAO_INICIADA
+    s = proximo_status(Acao.INICIAR, s)
     assert s == Status.EM_ANDAMENTO
     s = proximo_status(Acao.ENVIAR_REVISAO, s)
     assert s == Status.EM_REVISAO
@@ -105,7 +107,10 @@ def test_recusada_pode_ser_reatribuida():
 
 
 def test_arraste_permitido_e_bloqueado():
-    assert acao_por_arraste(Status.AGUARDANDO_ACEITE, Status.EM_ANDAMENTO) == Acao.ACEITAR
+    assert acao_por_arraste(Status.AGUARDANDO_ACEITE, Status.NAO_INICIADA) == Acao.ACEITAR
+    assert acao_por_arraste(Status.NAO_INICIADA, Status.EM_ANDAMENTO) == Acao.INICIAR
+    with pytest.raises(TransicaoInvalida):
+        acao_por_arraste(Status.AGUARDANDO_ACEITE, Status.EM_ANDAMENTO)
     with pytest.raises(TransicaoInvalida):
         acao_por_arraste(Status.NOVA, Status.CONCLUIDA)
 

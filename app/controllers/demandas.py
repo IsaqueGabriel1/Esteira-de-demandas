@@ -166,6 +166,7 @@ def executar_acao(demanda_id, acao):
     mensagens = {
         Acao.ATRIBUIR: "Demanda atribuída.",
         Acao.ACEITAR: "Você aceitou a demanda.",
+        Acao.INICIAR: "Demanda iniciada.",
         Acao.RECUSAR: "Demanda recusada. Ela voltou para quem atribuiu.",
         Acao.ENVIAR_REVISAO: "Entrega enviada para revisão.",
         Acao.APROVAR: "Entrega aprovada. Demanda concluída.",
@@ -179,6 +180,8 @@ def executar_acao(demanda_id, acao):
             demanda_service.atribuir(current_user, demanda, _int(request.form.get("atribuido_id")))
         elif acao == Acao.ACEITAR:
             demanda_service.aceitar(current_user, demanda)
+        elif acao == Acao.INICIAR:
+            demanda_service.iniciar(current_user, demanda)
         elif acao == Acao.RECUSAR:
             demanda_service.recusar(current_user, demanda, texto)
         elif acao == Acao.ENVIAR_REVISAO:

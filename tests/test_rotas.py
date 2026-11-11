@@ -77,7 +77,9 @@ def test_mover_no_quadro(client, login, usuarios, nova_demanda):
     resposta = client.post(f"/demandas/{d.id}/mover", json={"status": Status.CONCLUIDA})
     assert resposta.status_code == 422 and resposta.json["ok"] is False
     resposta = client.post(f"/demandas/{d.id}/mover", json={"status": Status.EM_ANDAMENTO})
-    assert resposta.status_code == 200 and resposta.json["status"] == Status.EM_ANDAMENTO
+    assert resposta.status_code == 422  # não pula "Não iniciada"
+    resposta = client.post(f"/demandas/{d.id}/mover", json={"status": Status.NAO_INICIADA})
+    assert resposta.status_code == 200 and resposta.json["status"] == Status.NAO_INICIADA
 
 
 def test_gerente_cria_usuario(client, login, usuarios):
