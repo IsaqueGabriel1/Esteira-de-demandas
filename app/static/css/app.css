@@ -72,7 +72,7 @@ a { color: var(--cor-primaria); }
 .card-demanda.faixa-alta { border-left-color: var(--prio-alta); }
 .card-demanda.faixa-media { border-left-color: var(--prio-media); }
 .card-demanda.faixa-baixa { border-left-color: var(--prio-baixa); }
-.card-demanda.atrasada { background: #fff6f6; }
+.card-demanda.atrasada { background: #fde4ec; } /* rosa claro: sinaliza pendência */
 .card-acao { font-size: .875rem; line-height: 1.3; }
 .sortable-ghost { opacity: .4; }
 .sortable-chosen { cursor: grabbing; }

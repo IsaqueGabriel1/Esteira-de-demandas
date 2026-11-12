@@ -293,3 +293,18 @@ def test_desligar_criar_demanda_bloqueia_o_chefe(app, db, client, login, usuario
 
     permissao_service.restaurar_padrao(admin)
     assert permissoes.pode_criar_demanda(Perfil.CHEFE)
+
+
+def test_prazo_acordado_pela_tela_da_demanda(client, login, usuarios, nova_demanda):
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
+    login(usuarios["gerente"])
+    assert b'name="prazo_acordado"' not in client.get(f"/demandas/{d.id}").data
+    client.post(f"/demandas/{d.id}/prazo-acordado", data={"prazo_acordado": "2030-01-15"})
+    assert d.prazo_acordado is None
+    client.post("/logout")
+
+    login(usuarios["usuario"])
+    assert b'name="prazo_acordado"' in client.get(f"/demandas/{d.id}").data
+    resposta = client.post(f"/demandas/{d.id}/prazo-acordado", data={"prazo_acordado": "2030-01-15"})
+    assert resposta.status_code == 302
+    assert d.prazo_acordado.isoformat() == "2030-01-15"

@@ -31,6 +31,8 @@ class Demanda(db.Model):
     pasta_rede = db.Column(db.String(500), nullable=True)
     inicio = db.Column(db.Date, nullable=True)
     termino = db.Column(db.Date, nullable=True)
+    # Definido pelo responsável; quando preenchido, é ele que define se a demanda está atrasada.
+    prazo_acordado = db.Column(db.Date, nullable=True)
 
     status = db.Column(db.String(30), nullable=False, default=Status.NOVA, index=True)
 
@@ -72,8 +74,13 @@ class Demanda(db.Model):
         return self.status in Status.FINAIS
 
     @property
+    def prazo_final(self):
+        """Prazo usado para o atraso: o acordado, ou o término se não houver acordo."""
+        return self.prazo_acordado or self.termino
+
+    @property
     def atrasada(self):
-        return bool(self.termino and not self.finalizada and self.termino < date.today())
+        return bool(self.prazo_final and not self.finalizada and self.prazo_final < date.today())
 
     @property
     def faixa(self):

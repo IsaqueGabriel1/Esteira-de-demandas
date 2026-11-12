@@ -318,6 +318,39 @@ def test_divisao_e_obrigatoria_e_registrada_na_edicao(usuarios, nova_demanda, ei
     assert any("divisão: DIO → DIO/DPO" in h.descricao for h in d.historico)
 
 
+def test_prazo_acordado_define_o_atraso(usuarios, nova_demanda):
+    hoje = date.today()
+    d = nova_demanda(
+        usuarios["gerente"], atribuido_id=usuarios["usuario"].id,
+        inicio=hoje - timedelta(days=10), termino=hoje - timedelta(days=1),
+    )
+    assert d.atrasada  # sem prazo acordado, vale o término
+
+    svc.definir_prazo_acordado(usuarios["usuario"], d, hoje + timedelta(days=5))
+    assert not d.atrasada
+    assert svc.consultar(usuarios["gerente"], {"atrasadas": True}).all() == []
+    assert any("Prazo acordado" in h.descricao for h in d.historico)
+
+    svc.definir_prazo_acordado(usuarios["usuario"], d, hoje - timedelta(days=2))
+    assert d.atrasada
+    assert svc.consultar(usuarios["gerente"], {"atrasadas": True}).all() == [d]
+
+    with pytest.raises(RegraNegocioError):
+        svc.definir_prazo_acordado(usuarios["usuario"], d, d.inicio - timedelta(days=1))
+
+    svc.definir_prazo_acordado(usuarios["usuario"], d, None)
+    assert d.prazo_acordado is None
+
+
+def test_somente_o_responsavel_define_o_prazo_acordado(usuarios, nova_demanda):
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
+    for outro in ("gerente", "chefe", "usuario2"):
+        assert not svc.pode_definir_prazo_acordado(usuarios[outro], d)
+        with pytest.raises(PermissaoNegada):
+            svc.definir_prazo_acordado(usuarios[outro], d, date.today())
+    assert svc.pode_definir_prazo_acordado(usuarios["usuario"], d)
+
+
 @pytest.mark.parametrize("divisao", ["DIO", "DPO", "GGO", "DIO/DPO", "DPO/DIO", "GGO/DPO/DIO"])
 def test_todas_as_divisoes_sao_aceitas(usuarios, nova_demanda, divisao):
     d = nova_demanda(usuarios["gerente"], divisao=divisao)

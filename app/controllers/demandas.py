@@ -1,3 +1,5 @@
+from datetime import date
+
 from flask import Blueprint, Response, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
@@ -129,6 +131,7 @@ def detalhe(demanda_id):
         "demandas/detalhe.html",
         demanda=demanda,
         acoes=demanda_service.acoes_disponiveis(current_user, demanda),
+        pode_prazo_acordado=demanda_service.pode_definir_prazo_acordado(current_user, demanda),
         usuarios=usuario_service.listar_ativos(),
     )
 
@@ -214,6 +217,24 @@ def definir_gut(demanda_id):
             _int(request.form.get("tendencia")),
         )
         flash(f"Prioridade definida: P = {demanda.prioridade}." if alterou else "Os pesos não mudaram.", "success")
+    except RegraNegocioError as erro:
+        db.session.rollback()
+        flash(erro.mensagem, "danger")
+    return redirect(url_for("demandas.detalhe", demanda_id=demanda.id))
+
+
+@bp.route("/demandas/<int:demanda_id>/prazo-acordado", methods=["POST"])
+@login_required
+def definir_prazo_acordado(demanda_id):
+    demanda = _obter_ou_404(demanda_id)
+    try:
+        valor = (request.form.get("prazo_acordado") or "").strip()
+        try:
+            prazo = date.fromisoformat(valor) if valor else None
+        except ValueError:
+            raise RegraNegocioError("Data inválida para o prazo acordado.")
+        alterou = demanda_service.definir_prazo_acordado(current_user, demanda, prazo)
+        flash("Prazo acordado salvo." if alterou else "O prazo acordado não mudou.", "success")
     except RegraNegocioError as erro:
         db.session.rollback()
         flash(erro.mensagem, "danger")

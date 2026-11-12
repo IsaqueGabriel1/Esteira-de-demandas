@@ -1,11 +1,11 @@
 """Máquina de estados da demanda.
 
 Fluxo principal:
-    A atribuir → Aguardando aceite → Não iniciada → Em andamento → Em revisão → Concluída
+    A atribuir → Aguardando aceite → Não iniciada → Em andamento → Em validação → Concluída
 
 Desvios:
     Aguardando aceite → Recusada (com justificativa; volta para quem atribuiu)
-    Em revisão → Em andamento (devolvida para ajustes)
+    Em validação → Em andamento (devolvida para ajustes)
     qualquer status não final → Cancelada
 """
 from .erros import TransicaoInvalida
@@ -26,7 +26,7 @@ class Status:
         AGUARDANDO_ACEITE: "Aguardando aceite",
         NAO_INICIADA: "Não iniciada",
         EM_ANDAMENTO: "Em andamento",
-        EM_REVISAO: "Em revisão",
+        EM_REVISAO: "Em validação",
         CONCLUIDA: "Concluída",
         RECUSADA: "Recusada",
         CANCELADA: "Cancelada",

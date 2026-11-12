@@ -46,7 +46,7 @@ def calcular(usuario):
             },
         },
         "ranking": sorted(
-            [d for d in ativas if d.tem_gut], key=lambda d: (-d.prioridade, d.termino or d.criado_em.date())
+            [d for d in ativas if d.tem_gut], key=lambda d: (-d.prioridade, d.prazo_final or d.criado_em.date())
         )[:10],
-        "atrasadas": sorted([d for d in ativas if d.atrasada], key=lambda d: d.termino)[:10],
+        "atrasadas": sorted([d for d in ativas if d.atrasada], key=lambda d: d.prazo_final)[:10],
     }
