@@ -73,6 +73,11 @@ def nova_demanda(eixo):
 
     def _criar(criador, **campos):
         dados = {"eixo_id": eixo.id, "acao": "Inventariar bases de outorga", "produto": "Planilha de inventário", "divisao": "DIO"}
+        if campos.get("atribuido_id"):
+            # Só se atribui demanda com prazo e prioridade definidos
+            from datetime import date, timedelta
+
+            dados.update(termino=date.today() + timedelta(days=30), gravidade=3, urgencia=3, tendencia=3)
         dados.update(campos)
         return demanda_service.criar(criador, dados)
 

@@ -40,7 +40,7 @@ def test_criacao_registra_historico(usuarios, nova_demanda):
 def test_criacao_com_gut_calcula_prioridade(usuarios, nova_demanda):
     d = nova_demanda(usuarios["chefe"], gravidade=5, urgencia=4, tendencia=3)
     assert d.prioridade == 60
-    assert d.faixa[1] == "media"
+    assert d.faixa[1] == "alta"
 
 
 def test_gut_incompleto_e_rejeitado(usuarios, nova_demanda):
@@ -65,7 +65,7 @@ def test_chefe_nao_atribui_a_gerente_nem_a_outro_chefe(usuarios, nova_demanda):
 
 
 def test_chefe_nao_reatribui_a_chefe(db, usuarios, nova_demanda):
-    d = nova_demanda(usuarios["chefe"])
+    d = nova_demanda(usuarios["chefe"], termino=date.today(), gravidade=3, urgencia=3, tendencia=3)
     with pytest.raises(PermissaoNegada):
         svc.atribuir(usuarios["chefe"], d, usuarios["chefe2"].id)
     db.session.rollback()
@@ -434,3 +434,220 @@ def test_permissoes_configuradas_valem_no_servico(app, db, usuarios, nova_demand
     permissoes.configurar({(Perfil.GERENTE, "criar_demanda"): False})
     with pytest.raises(PermissaoNegada):
         nova_demanda(usuarios["gerente"])
+
+
+def test_indicadores_filtram_por_usuario_e_divisao_do_responsavel(usuarios, nova_demanda, db):
+    from app.services import indicadores_service
+
+    usuarios["usuario"].divisao = "GGO"
+    usuarios["usuario2"].divisao = "SR"
+    db.session.commit()
+    # A divisão da demanda não importa: vale a do cadastro do responsável
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id, divisao="DIO")
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario2"].id, divisao="DIO")
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id, divisao="DPO")
+    nova_demanda(usuarios["gerente"], divisao="DIO")
+
+    def ativas(**filtros):
+        return indicadores_service.calcular(usuarios["gerente"], filtros)["totais"]["ativas"]
+
+    assert ativas() == 4
+    assert ativas(atribuido_id=usuarios["usuario"].id) == 2
+    assert ativas(divisao_responsavel="GGO") == 2
+    assert ativas(divisao_responsavel="SR") == 1
+    assert ativas(divisao_responsavel="DIO") == 0
+    assert ativas(atribuido_id=usuarios["usuario"].id, divisao_responsavel="SR") == 0
+
+
+def _ciclo_completo(usuarios, nova_demanda, db, dias_por_etapa, termino, concluir_ha_dias=2):
+    """Cria e conclui uma demanda, reescrevendo as datas do histórico para durações conhecidas.
+    dias_por_etapa: (aguardando aceite, não iniciada, em andamento, em validação)."""
+    from app.models.base import agora
+
+    d = nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id)
+    d.termino = termino  # permite simular demandas antigas, atribuídas antes da exigência de prazo
+    db.session.commit()
+    svc.aceitar(usuarios["usuario"], d)
+    svc.iniciar(usuarios["usuario"], d)
+    svc.enviar_revisao(usuarios["usuario"], d)
+    svc.aprovar(usuarios["chefe"], d)
+
+    fim = agora() - timedelta(days=concluir_ha_dias)
+    momento = fim - timedelta(days=sum(dias_por_etapa))
+    eventos = sorted(d.historico, key=lambda h: h.id)
+    duracoes = iter(dias_por_etapa)
+    for evento in eventos:
+        evento.criado_em = momento
+        if evento.tipo in (TipoEvento.ATRIBUICAO, TipoEvento.ACEITE, TipoEvento.INICIO, TipoEvento.ENVIO_REVISAO):
+            momento += timedelta(days=next(duracoes))
+    d.concluido_em = fim
+    db.session.commit()
+    return d
+
+
+def test_indicadores_de_prazo_e_tempo_por_etapa(usuarios, nova_demanda, db):
+    from app.services import indicadores_service
+
+    hoje = date.today()
+    _ciclo_completo(usuarios, nova_demanda, db, (1, 2, 4, 1), termino=hoje)                       # no prazo
+    _ciclo_completo(usuarios, nova_demanda, db, (3, 2, 6, 5), termino=hoje - timedelta(days=10))  # atrasada
+    _ciclo_completo(usuarios, nova_demanda, db, (1, 1, 1, 1), termino=None)                       # sem prazo
+
+    dp = indicadores_service.calcular(usuarios["gerente"])["desempenho"]
+    assert dp["concluidas"] == 3
+    assert dp["prazo"]["percentual"] == 50
+    assert (dp["prazo"]["no_prazo"], dp["prazo"]["com_prazo"], dp["prazo"]["sem_prazo"]) == (1, 2, 1)
+
+    etapas = {e["rotulo"]: e for e in dp["etapas"]}
+    assert round(etapas["Aguardando aceite"]["mediana"]) == 1
+    assert round(etapas["Em andamento"]["mediana"]) == 4
+    assert round(etapas["Em validação"]["mediana"]) == 1
+    assert dp["gargalo"] == "Em andamento"
+    assert etapas["Em andamento"]["parcela"] == 39  # 11 de 28 dias
+
+    # Fora do período escolhido, a demanda não entra
+    antiga = _ciclo_completo(usuarios, nova_demanda, db, (1, 1, 1, 1), termino=hoje, concluir_ha_dias=60)
+    assert indicadores_service.calcular(usuarios["gerente"], periodo="30")["desempenho"]["concluidas"] == 3
+    assert indicadores_service.calcular(usuarios["gerente"], periodo="90")["desempenho"]["concluidas"] == 4
+    assert antiga.status == Status.CONCLUIDA
+
+
+def test_fluxo_antigo_sem_inicio_conta_como_em_andamento(usuarios, nova_demanda, db):
+    from app.services import indicadores_service
+
+    d = _ciclo_completo(usuarios, nova_demanda, db, (1, 3, 0, 1), termino=None)
+    inicio = next(h for h in d.historico if h.tipo == TipoEvento.INICIO)
+    db.session.delete(inicio)  # demanda concluída antes de existir "Não iniciada"
+    db.session.commit()
+    tempos = indicadores_service._tempo_por_etapa(d)
+    assert Status.NAO_INICIADA not in tempos
+    assert round(indicadores_service._dias(tempos[Status.EM_ANDAMENTO])) == 3
+
+
+def test_formatar_dias():
+    from app.services.indicadores_service import formatar_dias
+
+    assert formatar_dias(None) == "—"
+    assert formatar_dias(0.25) == "6 h"
+    assert formatar_dias(1) == "1,0 dia"
+    assert formatar_dias(3.46) == "3,5 dias"
+
+
+def test_taxa_de_devolucao_conta_as_validacoes(usuarios, nova_demanda):
+    from app.services import indicadores_service
+
+    d = _em_andamento(usuarios, nova_demanda)  # responsável: usuario
+    svc.enviar_revisao(usuarios["usuario"], d)
+    svc.devolver(usuarios["chefe"], d, "Faltou a coluna de vazão outorgada.")
+    svc.enviar_revisao(usuarios["usuario"], d)
+    svc.aprovar(usuarios["chefe"], d)
+
+    outra = nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario2"].id)
+    svc.aceitar(usuarios["usuario2"], outra)
+    svc.iniciar(usuarios["usuario2"], outra)
+    svc.enviar_revisao(usuarios["usuario2"], outra)
+    svc.aprovar(usuarios["chefe"], outra)
+
+    dv = indicadores_service.calcular(usuarios["gerente"])["desempenho"]["devolucoes"]
+    assert (dv["devolucoes"], dv["validacoes"], dv["taxa"]) == (1, 3, 33)
+    linhas = {l["nome"]: l for l in dv["por_responsavel"]}
+    assert linhas[usuarios["usuario"].nome]["taxa"] == 50
+    assert linhas[usuarios["usuario2"].nome]["taxa"] == 0
+    assert dv["por_responsavel"][0]["nome"] == usuarios["usuario"].nome  # maior taxa primeiro
+
+
+def test_carga_ponderada_pela_gut(usuarios, nova_demanda, db):
+    from app.services import indicadores_service
+
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id, gravidade=5, urgencia=5, tendencia=5)
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario2"].id, gravidade=2, urgencia=2, tendencia=2)
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario2"].id, gravidade=2, urgencia=2, tendencia=2)
+    sem_gut = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario2"].id)
+    # Demanda antiga, atribuída antes da exigência de priorização
+    sem_gut.gravidade = sem_gut.urgencia = sem_gut.tendencia = sem_gut.prioridade = None
+    db.session.commit()
+    nova_demanda(usuarios["gerente"], gravidade=5, urgencia=5, tendencia=5)  # sem responsável
+
+    dados = indicadores_service.calcular(usuarios["gerente"])
+    assert dados["ativas_sem_responsavel"] == 1
+    carga = dados["carga"]
+    assert [(l["nome"], l["pontos"], l["ativas"], l["sem_gut"]) for l in carga] == [
+        (usuarios["usuario"].nome, 125, 1, 0),
+        (usuarios["usuario2"].nome, 16, 3, 1),
+    ]
+
+
+def test_minhas_do_gestor_do_plano_mostra_revisao_so_da_sua_divisao(usuarios, nova_demanda, db):
+    from app.services.perfis import Perfil
+
+    gestor = usuarios["chefe2"]
+    gestor.perfil, gestor.divisao = Perfil.GESTOR_PLANO, "DPO"
+    db.session.commit()
+    demandas = {}
+    for divisao in ("DPO", "DIO/DPO", "DIO"):
+        d = nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id, divisao=divisao)
+        svc.aceitar(usuarios["usuario"], d)
+        svc.iniciar(usuarios["usuario"], d)
+        svc.enviar_revisao(usuarios["usuario"], d)
+        demandas[divisao] = d
+
+    revisao = svc.minhas(gestor)["revisao"]
+    assert demandas["DPO"] in revisao and demandas["DIO/DPO"] in revisao
+    assert demandas["DIO"] not in revisao
+    # Só na tela Minhas demandas: o quadro continua mostrando todas
+    assert demandas["DIO"] in svc.quadro(gestor)[Status.EM_REVISAO]
+    # Os demais gestores continuam vendo todas
+    assert demandas["DIO"] in svc.minhas(usuarios["chefe"])["revisao"]
+
+def test_voltar_para_em_andamento_exige_a_permissao(usuarios, nova_demanda):
+    from app.services import permissoes
+    from app.services.perfis import Perfil
+
+    d = _em_andamento(usuarios, nova_demanda)
+    svc.enviar_revisao(usuarios["usuario"], d)
+    # Desligada por padrão para todos os perfis
+    assert Acao.RETOMAR not in svc.acoes_disponiveis(usuarios["usuario"], d)
+    with pytest.raises(PermissaoNegada):
+        svc.retomar(usuarios["usuario"], d)
+
+    permissoes.configurar({(Perfil.USUARIO, "voltar_andamento"): True})
+    try:
+        assert Acao.RETOMAR in svc.acoes_disponiveis(usuarios["usuario"], d)
+        # Só vale para demandas que o usuário pode ver
+        with pytest.raises(PermissaoNegada):
+            svc.retomar(usuarios["usuario2"], d)
+        svc.retomar(usuarios["usuario"], d, "Esqueci um anexo.")
+    finally:
+        permissoes.configurar({})
+    assert d.status == Status.EM_ANDAMENTO
+    retomada = [h for h in d.historico if h.tipo == TipoEvento.RETOMADA]
+    assert len(retomada) == 1 and "Esqueci um anexo." in retomada[0].descricao
+    # Não pode voltar se não estiver Em validação
+    permissoes.configurar({(Perfil.USUARIO, "voltar_andamento"): True})
+    try:
+        assert Acao.RETOMAR not in svc.acoes_disponiveis(usuarios["usuario"], d)
+    finally:
+        permissoes.configurar({})
+
+def test_so_atribui_demanda_com_prazo_e_prioridade(db, usuarios, nova_demanda):
+    gut = {"gravidade": 3, "urgencia": 3, "tendencia": 3}
+    with pytest.raises(RegraNegocioError, match="prazo"):
+        nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id, termino=None)
+    db.session.rollback()
+    with pytest.raises(RegraNegocioError, match="prioridade"):
+        nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id, gravidade=None, urgencia=None, tendencia=None)
+    db.session.rollback()
+
+    d = nova_demanda(usuarios["chefe"])
+    assert svc.pendencias_para_atribuir(d) == ["preencha o prazo (data de término)", "defina a prioridade (pesos GUT)"]
+    with pytest.raises(RegraNegocioError):
+        svc.atribuir(usuarios["chefe"], d, usuarios["usuario"].id)
+    db.session.rollback()
+    svc.definir_gut(usuarios["chefe"], d, **gut)
+    with pytest.raises(RegraNegocioError, match="prazo"):
+        svc.atribuir(usuarios["chefe"], d, usuarios["usuario"].id)
+    db.session.rollback()
+    d.termino = date.today()
+    db.session.commit()
+    svc.atribuir(usuarios["chefe"], d, usuarios["usuario"].id)
+    assert d.status == Status.AGUARDANDO_ACEITE

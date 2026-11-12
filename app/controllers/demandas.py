@@ -6,9 +6,10 @@ from flask_login import current_user, login_required
 from ..extensions import db
 from ..forms import DemandaForm
 from ..models import Eixo
-from ..services import demanda_service, exportacao_service, permissoes, usuario_service
+from ..services import demanda_service, divisao_service, exportacao_service, permissoes, usuario_service
 from ..services.erros import RegraNegocioError
 from ..services.fluxo import Acao, Status
+from ..services.perfis import Perfil
 
 bp = Blueprint("demandas", __name__)
 
@@ -29,16 +30,20 @@ def _filtros_da_url():
         "eixo_id": _int(request.args.get("eixo")),
         "status": request.args.get("status") if request.args.get("status") in Status.TODOS else None,
         "atribuido_id": _int(request.args.get("responsavel")),
+        # Divisão do cadastro do responsável (mesma regra dos Indicadores)
+        "divisao_responsavel": request.args.get("divisao") or None,
         "faixa": request.args.get("faixa") or None,
         "atrasadas": request.args.get("atrasadas") == "1",
         "busca": request.args.get("busca", "").strip(),
     }
 
 
-def _opcoes_filtro():
+def _opcoes_filtro(filtros):
+    divisao = filtros.get("divisao_responsavel")
     return {
         "eixos": Eixo.query.filter_by(ativo=True).order_by(Eixo.numero).all(),
-        "usuarios": usuario_service.listar_ativos(),
+        "usuarios": [u for u in usuario_service.listar_ativos() if not divisao or u.divisao == divisao],
+        "divisoes": divisao_service.siglas_para_usuarios(atual=divisao),
     }
 
 
@@ -80,7 +85,7 @@ def inicio():
 def quadro():
     filtros = _filtros_da_url()
     colunas = demanda_service.quadro(current_user, filtros)
-    return render_template("demandas/quadro.html", colunas=colunas, filtros=filtros, **_opcoes_filtro())
+    return render_template("demandas/quadro.html", colunas=colunas, filtros=filtros, **_opcoes_filtro(filtros))
 
 
 @bp.route("/demandas")
@@ -97,12 +102,15 @@ def lista():
             mimetype="text/csv; charset=utf-8",
             headers={"Content-Disposition": "attachment; filename=demandas.csv"},
         )
-    return render_template("demandas/lista.html", demandas=demandas, filtros=filtros, **_opcoes_filtro())
+    return render_template("demandas/lista.html", demandas=demandas, filtros=filtros, **_opcoes_filtro(filtros))
 
 
 @bp.route("/minhas")
 @login_required
 def minhas():
+    # Usuário Comum já só vê as próprias demandas no quadro: a aba não existe para ele
+    if current_user.perfil == Perfil.USUARIO:
+        return redirect(url_for("demandas.quadro"))
     return render_template("demandas/minhas.html", grupos=demanda_service.minhas(current_user))
 
 
@@ -133,6 +141,7 @@ def detalhe(demanda_id):
         acoes=demanda_service.acoes_disponiveis(current_user, demanda),
         pode_prazo_acordado=demanda_service.pode_definir_prazo_acordado(current_user, demanda),
         pode_pasta_rede=demanda_service.pode_definir_pasta_rede(current_user, demanda),
+        pendencias_atribuir=demanda_service.pendencias_para_atribuir(demanda),
         usuarios=usuario_service.listar_ativos(),
     )
 
@@ -175,6 +184,7 @@ def executar_acao(demanda_id, acao):
         Acao.ENVIAR_REVISAO: "Entrega enviada para revisão.",
         Acao.APROVAR: "Entrega aprovada. Demanda concluída.",
         Acao.DEVOLVER: "Entrega devolvida para ajustes.",
+        Acao.RETOMAR: "A demanda voltou para Em andamento.",
         Acao.CANCELAR: "Demanda cancelada.",
     }
     if acao not in mensagens:
@@ -194,6 +204,8 @@ def executar_acao(demanda_id, acao):
             demanda_service.aprovar(current_user, demanda, texto)
         elif acao == Acao.DEVOLVER:
             demanda_service.devolver(current_user, demanda, texto)
+        elif acao == Acao.RETOMAR:
+            demanda_service.retomar(current_user, demanda, texto)
         elif acao == Acao.CANCELAR:
             demanda_service.cancelar(current_user, demanda, texto)
         flash(mensagens[acao], "success")

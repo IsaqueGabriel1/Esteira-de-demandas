@@ -1,7 +1,7 @@
-{# Barra de filtros compartilhada entre quadro e lista. Variáveis: filtros, eixos, usuarios, mostrar_status #}
+{# Barra de filtros compartilhada entre quadro e lista. Variáveis: filtros, eixos, usuarios, divisoes, mostrar_status #}
 <form method="get" class="card card-body filtros mb-3 py-2">
   <div class="row g-2 align-items-end">
-    <div class="col-md-3">
+    <div class="col-md-2">
       <label class="form-label small mb-0">Buscar</label>
       <input type="search" name="busca" value="{{ filtros.busca }}" class="form-control form-control-sm" placeholder="Ação, produto ou #id">
     </div>
@@ -11,6 +11,15 @@
         <option value="">Todos</option>
         {% for eixo in eixos %}
         <option value="{{ eixo.id }}" {{ 'selected' if filtros.eixo_id == eixo.id }}>{{ eixo.rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small mb-0">Divisão do responsável</label>
+      <select name="divisao" class="form-select form-select-sm">
+        <option value="">Todas</option>
+        {% for sigla in divisoes %}
+        <option value="{{ sigla }}" {{ 'selected' if filtros.divisao_responsavel == sigla }}>{{ sigla }}</option>
         {% endfor %}
       </select>
     </div>

@@ -26,7 +26,7 @@ def test_peso_fora_do_intervalo_e_rejeitado(valor):
 
 
 @pytest.mark.parametrize("p, esperado", [
-    (1, "baixa"), (27, "baixa"), (28, "media"), (63, "media"), (64, "alta"), (125, "alta"), (None, "pendente"),
+    (1, "baixa"), (17, "baixa"), (18, "media"), (47, "media"), (48, "alta"), (125, "alta"), (None, "pendente"),
 ])
 def test_faixas(p, esperado):
     assert gut.faixa(p)[1] == esperado

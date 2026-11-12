@@ -36,6 +36,7 @@ FUNCIONALIDADES = [
     ("atribuir_" + Perfil.USUARIO, "Atribuir a Usuário Comum", "Atribuição"),
     ("revisar", "Aprovar / devolver entrega", "Revisão"),
     ("revisar_propria", "Aprovar / devolver a própria entrega", "Revisão"),
+    ("voltar_andamento", "Voltar demanda para Em andamento quando estiver Em validação", "Revisão"),
     ("gerenciar_usuarios", "Gerenciar usuários", "Administração"),
 ]
 CHAVES = frozenset(chave for chave, _, _ in FUNCIONALIDADES)
@@ -117,6 +118,10 @@ def descrever_atribuicao(perfil):
     if not partes:
         return "não pode atribuir demandas"
     return "só pode atribuir " + (", ".join(partes[:-1]) + " ou " + partes[-1] if len(partes) > 1 else partes[0])
+
+
+def pode_voltar_andamento(perfil):
+    return permitido(perfil, "voltar_andamento")
 
 
 def pode_revisar(perfil, eh_o_atribuido):

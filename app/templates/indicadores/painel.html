@@ -1,24 +1,181 @@
 {% extends "base.html" %}
 {% from "partials/_macros.html" import badge_prioridade, badge_eixo, prazo %}
 {% block titulo %}Indicadores{% endblock %}
+
+{# Ícone "i" com explicação ao passar o mouse (ou ao focar pelo teclado) #}
+{% macro info(texto) -%}
+<i class="bi bi-info-circle info-indicador" tabindex="0" role="img" aria-label="{{ texto }}" data-bs-toggle="tooltip" data-bs-title="{{ texto }}"></i>
+{%- endmacro %}
 {% block conteudo %}
 <h1 class="h4 mb-3">Indicadores {% if not permissoes.pode_ver_todas(current_user.perfil) %}<small class="text-muted fs-6">(das suas demandas)</small>{% endif %}</h1>
 
+<form method="get" class="card card-body filtros mb-3 py-2">
+  <div class="row g-2 align-items-end">
+    {% if permissoes.pode_ver_todas(current_user.perfil) %}
+    <div class="col-md-3">
+      <label class="form-label small mb-0">Usuário (responsável)</label>
+      <select name="usuario" class="form-select form-select-sm">
+        <option value="">Todos</option>
+        {% for u in usuarios %}
+        <option value="{{ u.id }}" {{ 'selected' if filtros.atribuido_id == u.id }}>{{ u.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="col-md-3">
+      <label class="form-label small mb-0">Período</label>
+      <select name="periodo" class="form-select form-select-sm">
+        {% for chave, (rotulo, _dias) in periodos.items() %}
+        <option value="{{ chave }}" {{ 'selected' if dados.desempenho.periodo == chave }}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small mb-0">Divisão do responsável</label>
+      <select name="divisao" class="form-select form-select-sm">
+        <option value="">Todas</option>
+        {% for sigla in divisoes %}
+        <option value="{{ sigla }}" {{ 'selected' if filtros.divisao_responsavel == sigla }}>{{ sigla }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto ms-auto">
+      <button class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> Filtrar</button>
+      <a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary">Limpar</a>
+    </div>
+  </div>
+</form>
+
+{% set dp = dados.desempenho %}
+{% set pz = dp.prazo %}
+<h2 class="h6 text-uppercase text-muted mb-2">Desempenho · {{ dp.periodo_rotulo|lower }} <small class="text-muted text-lowercase">(demandas concluídas no período)</small></h2>
+<div class="row g-3 mb-3">
+  <div class="col-md-6 col-xl-3">
+    <div class="card indicador h-100">
+      <div class="card-body">
+        <div class="small text-muted">Entregas no prazo {{ info('Das demandas concluídas no período que tinham prazo, quantas foram aprovadas até o prazo acordado (ou, se vazio, até a data de término).') }}</div>
+        {% if pz.percentual is not none %}
+        <div class="fs-2 fw-semibold {{ 'text-success' if pz.percentual >= 80 else ('text-warning' if pz.percentual >= 60 else 'text-danger') }}">{{ pz.percentual }}%</div>
+        <div class="small text-muted">{{ pz.no_prazo }} de {{ pz.com_prazo }} entregas com prazo definido</div>
+        {% if pz.variacao is not none %}
+        <div class="small {{ 'text-success' if pz.variacao > 0 else ('text-danger' if pz.variacao < 0 else 'text-muted') }}">
+          {% if pz.variacao > 0 %}▲ {{ pz.variacao }}{% elif pz.variacao < 0 %}▼ {{ -pz.variacao }}{% else %}= 0{% endif %} p.p. em relação ao período anterior
+        </div>
+        {% endif %}
+        {% if pz.sem_prazo %}<div class="small text-muted">{{ pz.sem_prazo }} concluída(s) sem prazo ficaram fora do cálculo</div>{% endif %}
+        {% else %}
+        <div class="fs-2 fw-semibold text-muted">—</div>
+        <div class="small text-muted">Nenhuma entrega com prazo concluída no período.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-3">
+    <div class="card indicador h-100">
+      <div class="card-body">
+        {% set dv = dp.devolucoes %}
+        <div class="small text-muted">Taxa de devolução na validação {{ info('Das validações feitas no período, quantas foram devoluções para ajuste. Conta cada decisão: uma entrega devolvida duas vezes conta duas. Quanto menor, melhor.') }}</div>
+        {% if dv.taxa is not none %}
+        <div class="fs-2 fw-semibold {{ 'text-success' if dv.taxa <= 10 else ('text-warning' if dv.taxa <= 25 else 'text-danger') }}">{{ dv.taxa }}%</div>
+        <div class="small text-muted">{{ dv.devolucoes }} devolvida(s) em {{ dv.validacoes }} validação(ões)</div>
+        {% if dv.variacao is not none %}
+        {# Para devolução, subir é ruim #}
+        <div class="small {{ 'text-danger' if dv.variacao > 0 else ('text-success' if dv.variacao < 0 else 'text-muted') }}">
+          {% if dv.variacao > 0 %}▲ {{ dv.variacao }}{% elif dv.variacao < 0 %}▼ {{ -dv.variacao }}{% else %}= 0{% endif %} p.p. em relação ao período anterior
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="fs-2 fw-semibold text-muted">—</div>
+        <div class="small text-muted">Nenhuma entrega validada no período.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-3">
+    <div class="card indicador h-100">
+      <div class="card-body">
+        <div class="small text-muted">Tempo total até a conclusão (mediana) {{ info('Tempo típico entre a criação da demanda e a aprovação da entrega, nas concluídas no período. A mediana é o valor do meio e não é distorcida por poucos casos muito longos.') }}</div>
+        <div class="fs-2 fw-semibold">{{ dp.ciclo_texto }}</div>
+        <div class="small text-muted">Da criação da demanda até a aprovação da entrega</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-3">
+    <div class="card indicador h-100">
+      <div class="card-body">
+        <div class="small text-muted">Demandas concluídas {{ info('Quantas demandas tiveram a entrega aprovada no período. É a base dos indicadores de prazo e de tempo: com poucas concluídas, os números oscilam muito.') }}</div>
+        <div class="fs-2 fw-semibold">{{ dp.concluidas }}</div>
+        <div class="small text-muted">Base de cálculo dos indicadores de desempenho</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header bg-white d-flex flex-wrap justify-content-between gap-2">
+    <span><i class="bi bi-hourglass-split"></i> Tempo em cada etapa (mediana por demanda) {{ info('Quanto tempo as demandas concluídas no período ficaram em cada etapa. A etapa com a maior parcela do tempo é o principal gargalo do fluxo.') }}</span>
+    {% if dp.gargalo %}<span class="small text-danger"><i class="bi bi-exclamation-triangle"></i> Maior parte do tempo: <strong>{{ dp.gargalo }}</strong></span>{% endif %}
+  </div>
+  <div class="card-body">
+    {% if dp.concluidas %}
+    <div class="row g-3 align-items-center">
+      <div class="col-lg-7"><canvas id="g-etapas" height="200"></canvas></div>
+      <div class="col-lg-5">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Etapa</th><th class="text-end">Mediana</th><th class="text-end">% do tempo</th><th class="text-end">Demandas</th></tr></thead>
+          <tbody>
+            {% for e in dp.etapas %}
+            <tr class="{{ 'table-danger-sutil' if e.rotulo == dp.gargalo }}">
+              <td>{{ e.rotulo }}</td>
+              <td class="text-end">{{ e.mediana_texto }}</td>
+              <td class="text-end">{{ e.parcela ~ '%' if e.parcela is not none else '—' }}</td>
+              <td class="text-end">{{ e.demandas }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="small text-muted mt-2 mb-0">"% do tempo" é a parcela de todo o tempo gasto pelas demandas concluídas que ficou em cada etapa. Uma demanda devolvida soma todas as passagens pela etapa.</p>
+      </div>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">Nenhuma demanda concluída no período.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if dp.devolucoes.por_responsavel %}
+<div class="card mb-4">
+  <div class="card-header bg-white"><i class="bi bi-arrow-counterclockwise"></i> Devoluções na validação por responsável {{ info('Taxa de devolução separada por responsável da demanda, para identificar onde as entregas mais voltam para ajuste.') }}</div>
+  <div class="card-body">
+    <table class="table table-sm mb-0">
+      <thead><tr><th>Responsável</th><th class="text-end">Validações</th><th class="text-end">Devolvidas</th><th class="text-end">Taxa</th></tr></thead>
+      <tbody>
+        {% for l in dp.devolucoes.por_responsavel %}
+        <tr><td>{{ l.nome }}</td><td class="text-end">{{ l.validacoes }}</td><td class="text-end">{{ l.devolucoes }}</td><td class="text-end">{{ l.taxa }}%</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="small text-muted mt-2 mb-0">Com poucas validações a taxa oscila muito: olhe junto com a quantidade.</p>
+  </div>
+</div>
+{% endif %}
+
+<h2 class="h6 text-uppercase text-muted mb-2">Situação atual</h2>
 {% set t = dados.totais %}
 <div class="row g-3 mb-3">
-  {% for rotulo, valor, icone, cor in [
-      ('Ativas', t.ativas, 'bi-collection', 'primary'),
-      ('Atrasadas', t.atrasadas, 'bi-alarm', 'danger'),
-      ('Aguardando aceite', t.aguardando_aceite, 'bi-hourglass-split', 'warning'),
-      ('Em validação', t.em_revisao, 'bi-patch-question', 'info'),
-      ('Sem GUT', t.sem_gut, 'bi-question-diamond', 'secondary'),
-      ('Concluídas', t.concluidas, 'bi-patch-check', 'success')] %}
+  {% for rotulo, valor, icone, cor, explicacao in [
+      ('Ativas', t.ativas, 'bi-collection', 'primary', 'Demandas em aberto hoje: não concluídas nem canceladas.'),
+      ('Atrasadas', t.atrasadas, 'bi-alarm', 'danger', 'Demandas em aberto com o prazo vencido (prazo acordado ou, se vazio, a data de término).'),
+      ('Aguardando aceite', t.aguardando_aceite, 'bi-hourglass-split', 'warning', 'Demandas atribuídas que o responsável ainda não aceitou nem recusou.'),
+      ('Em validação', t.em_revisao, 'bi-patch-question', 'info', 'Entregas enviadas que aguardam a aprovação ou devolução de um gestor.'),
+      ('Sem GUT', t.sem_gut, 'bi-question-diamond', 'secondary', 'Demandas em aberto ainda sem os pesos da Matriz GUT, ou seja, sem prioridade definida.'),
+      ('Concluídas', t.concluidas, 'bi-patch-check', 'success', 'Total de demandas com a entrega aprovada, desde o início (não depende do período).')] %}
   <div class="col-6 col-md-4 col-xl-2">
     <div class="card indicador h-100">
       <div class="card-body">
         <div class="text-{{ cor }} fs-4"><i class="bi {{ icone }}"></i></div>
         <div class="fs-3 fw-semibold">{{ valor }}</div>
-        <div class="small text-muted">{{ rotulo }}</div>
+        <div class="small text-muted">{{ rotulo }} {{ info(explicacao) }}</div>
       </div>
     </div>
   </div>
@@ -26,16 +183,41 @@
 </div>
 
 <div class="row g-3 mb-3">
-  <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white">Demandas ativas por eixo</div><div class="card-body"><canvas id="g-eixo" height="220"></canvas></div></div></div>
-  <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white">Demandas por status</div><div class="card-body"><canvas id="g-status" height="220"></canvas></div></div></div>
-  <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white">Demandas ativas por responsável</div><div class="card-body"><canvas id="g-responsavel" height="220"></canvas></div></div></div>
-  <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white">Demandas ativas por faixa de prioridade</div><div class="card-body"><canvas id="g-faixa" height="220"></canvas></div></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white">Demandas ativas por eixo {{ info('Quantas demandas em aberto existem em cada eixo do plano de trabalho.') }}</div><div class="card-body"><canvas id="g-eixo" height="220"></canvas></div></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white">Demandas por status {{ info('Todas as demandas, inclusive concluídas e canceladas, por etapa atual do fluxo.') }}</div><div class="card-body"><canvas id="g-status" height="220"></canvas></div></div></div>
+  <div class="col-12">
+    <div class="card h-100">
+      <div class="card-header bg-white">Carga por responsável (soma da prioridade GUT das demandas ativas) {{ info('Soma da prioridade (P = G × U × T) das demandas em aberto de cada pessoa. Mostra o peso do trabalho, não só a quantidade: uma demanda crítica pesa mais que várias simples.') }}</div>
+      <div class="card-body">
+        {% if dados.carga %}
+        <div class="row g-3 align-items-center">
+          <div class="col-lg-7"><canvas id="g-carga" height="220"></canvas></div>
+          <div class="col-lg-5">
+            <table class="table table-sm mb-0">
+              <thead><tr><th>Responsável</th><th class="text-end">Pontos GUT</th><th class="text-end">Ativas</th><th class="text-end">Sem GUT</th><th class="text-end">Atrasadas</th></tr></thead>
+              <tbody>
+                {% for l in dados.carga %}
+                <tr>
+                  <td>{{ l.nome }}</td><td class="text-end fw-semibold">{{ l.pontos }}</td><td class="text-end">{{ l.ativas }}</td>
+                  <td class="text-end {{ 'text-warning' if l.sem_gut }}">{{ l.sem_gut }}</td><td class="text-end {{ 'text-danger' if l.atrasadas }}">{{ l.atrasadas }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            <p class="small text-muted mt-2 mb-0">Demandas sem GUT não somam pontos: quem tem muitas "Sem GUT" pode estar com carga subestimada.</p>
+            {% if dados.ativas_sem_responsavel %}<p class="small text-warning mt-1 mb-0"><i class="bi bi-person-dash"></i> {{ dados.ativas_sem_responsavel }} demanda(s) ativa(s) ainda sem responsável não entram nesta conta.</p>{% endif %}
+          </div>
+        </div>
+        {% else %}<p class="text-muted small mb-0">Nenhuma demanda ativa com responsável{% if dados.ativas_sem_responsavel %} ({{ dados.ativas_sem_responsavel }} sem responsável){% endif %}.</p>{% endif %}
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="row g-3">
   <div class="col-lg-6">
     <div class="card h-100">
-      <div class="card-header bg-white"><i class="bi bi-sort-numeric-down-alt"></i> Ranking de prioridade (top 10)</div>
+      <div class="card-header bg-white"><i class="bi bi-sort-numeric-down-alt"></i> Ranking de prioridade (top 10) {{ info('As 10 demandas em aberto com maior prioridade GUT. No empate, vem primeiro a de prazo mais próximo.') }}</div>
       <ul class="list-group list-group-flush">
         {% for d in dados.ranking %}
         <a href="{{ url_for('demandas.detalhe', demanda_id=d.id) }}" class="list-group-item list-group-item-action d-flex gap-2 align-items-center">
@@ -48,7 +230,7 @@
   </div>
   <div class="col-lg-6">
     <div class="card h-100">
-      <div class="card-header bg-white text-danger"><i class="bi bi-alarm"></i> Atrasadas</div>
+      <div class="card-header bg-white text-danger"><i class="bi bi-alarm"></i> Atrasadas {{ info('As 10 demandas em aberto com prazo vencido há mais tempo, com o responsável e a data do prazo.') }}</div>
       <ul class="list-group list-group-flush">
         {% for d in dados.atrasadas %}
         <a href="{{ url_for('demandas.detalhe', demanda_id=d.id) }}" class="list-group-item list-group-item-action d-flex gap-2 align-items-center">

@@ -36,7 +36,7 @@ def test_criar_demanda_pelo_formulario(client, login, usuarios, eixo):
     resposta = client.post("/demandas/nova", data={
         "eixo_id": eixo.id, "acao": "Criar regra de negócio", "produto": "Documento de regra", "divisao": "DIO/DPO",
         "atribuido_id": usuarios["usuario"].id, "apoio_ids": [usuarios["usuario2"].id],
-        "gravidade": 3, "urgencia": 3, "tendencia": 3,
+        "gravidade": 3, "urgencia": 3, "tendencia": 3, "termino": "2030-12-31",
     })
     assert resposta.status_code == 302
     assert "/demandas/1" in resposta.headers["Location"]
@@ -308,3 +308,40 @@ def test_prazo_acordado_pela_tela_da_demanda(client, login, usuarios, nova_deman
     resposta = client.post(f"/demandas/{d.id}/prazo-acordado", data={"prazo_acordado": "2030-01-15"})
     assert resposta.status_code == 302
     assert d.prazo_acordado.isoformat() == "2030-01-15"
+
+
+def test_usuario_comum_nao_tem_minhas_demandas(client, login, usuarios):
+    login(usuarios["usuario"])
+    assert b'href="/minhas"' not in client.get("/quadro").data
+    resposta = client.get("/minhas")
+    assert resposta.status_code == 302 and "/quadro" in resposta.headers["Location"]
+    client.post("/logout")
+
+    login(usuarios["chefe"])
+    assert b'href="/minhas"' in client.get("/quadro").data
+    assert client.get("/minhas").status_code == 200
+
+
+def test_filtros_dos_indicadores(client, login, usuarios, nova_demanda):
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id, divisao="DPO")
+    login(usuarios["gerente"])
+    resposta = client.get(f"/indicadores/?usuario={usuarios['usuario'].id}&divisao=DPO")
+    assert resposta.status_code == 200
+    assert b'name="usuario"' in resposta.data and b'name="divisao"' in resposta.data
+    client.post("/logout")
+
+    login(usuarios["usuario"])
+    resposta = client.get(f"/indicadores/?usuario={usuarios['usuario2'].id}")
+    assert resposta.status_code == 200
+    assert b'name="usuario"' not in resposta.data  # só vê as próprias demandas
+
+def test_quadro_e_lista_filtram_pela_divisao_do_responsavel(client, login, usuarios, nova_demanda, db):
+    usuarios["usuario"].divisao, usuarios["usuario2"].divisao = "GGO", "SR"
+    db.session.commit()
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id, acao="Tarefa da GGO", divisao="DIO")
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario2"].id, acao="Tarefa da SR", divisao="DIO")
+    login(usuarios["gerente"])
+    for url in ("/quadro", "/demandas"):
+        resposta = client.get(f"{url}?divisao=GGO")
+        assert b'name="divisao"' in resposta.data
+        assert "Tarefa da GGO".encode() in resposta.data and "Tarefa da SR".encode() not in resposta.data

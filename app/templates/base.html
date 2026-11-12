@@ -27,7 +27,9 @@
       <ul class="navbar-nav me-auto">
         <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'demandas.quadro' }}" href="{{ url_for('demandas.quadro') }}"><i class="bi bi-kanban"></i> Quadro</a></li>
         <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'demandas.lista' }}" href="{{ url_for('demandas.lista') }}"><i class="bi bi-list-ul"></i> Demandas</a></li>
+        {% if current_user.perfil != Perfil.USUARIO %}
         <li class="nav-item"><a class="nav-link {{ 'active' if ep == 'demandas.minhas' }}" href="{{ url_for('demandas.minhas') }}"><i class="bi bi-person-check"></i> Minhas demandas</a></li>
+        {% endif %}
         <li class="nav-item"><a class="nav-link {{ 'active' if ep.startswith('indicadores') }}" href="{{ url_for('indicadores.painel') }}"><i class="bi bi-graph-up"></i> Indicadores</a></li>
         {% if permissoes.pode_gerenciar_usuarios(current_user.perfil) %}
         <li class="nav-item"><a class="nav-link {{ 'active' if ep.startswith('usuarios') }}" href="{{ url_for('usuarios.lista') }}"><i class="bi bi-people"></i> Usuários</a></li>

@@ -232,6 +232,16 @@ def _validar_permissao_atribuicao(usuario, destino):
     raise PermissaoNegada(f"O {usuario.perfil_rotulo} {permissoes.descrever_atribuicao(usuario.perfil)}.")
 
 
+def pendencias_para_atribuir(demanda):
+    """O que falta para a demanda poder ser atribuída: prazo e priorização GUT."""
+    pendencias = []
+    if not demanda.prazo_final:
+        pendencias.append("preencha o prazo (data de término)")
+    if not demanda.tem_gut:
+        pendencias.append("defina a prioridade (pesos GUT)")
+    return pendencias
+
+
 def _atribuir(usuario, demanda, destino):
     _validar_permissao_atribuicao(usuario, destino)
     if not transicao_permitida(Acao.ATRIBUIR, demanda.status):
@@ -240,6 +250,9 @@ def _atribuir(usuario, demanda, destino):
         )
     if demanda.atribuido_id == destino.id and demanda.status in (Status.AGUARDANDO_ACEITE, Status.NAO_INICIADA, Status.EM_ANDAMENTO):
         return  # nada mudou
+    pendencias = pendencias_para_atribuir(demanda)
+    if pendencias:
+        raise RegraNegocioError("Para atribuir a demanda, " + " e ".join(pendencias) + ".")
 
     anterior = demanda.atribuido
     demanda.atribuido = destino
@@ -456,6 +469,21 @@ def devolver(usuario, demanda, motivo):
     db.session.commit()
 
 
+def retomar(usuario, demanda, comentario=None):
+    """Volta de Em validação para Em andamento. Não é uma devolução da revisão: não entra na taxa de devolução."""
+    if not permissoes.pode_voltar_andamento(usuario.perfil):
+        raise PermissaoNegada("Você não tem permissão para voltar a demanda para Em andamento.")
+    if not pode_ver(usuario, demanda):
+        raise PermissaoNegada("Você não tem acesso a esta demanda.")
+    demanda.status = proximo_status(Acao.RETOMAR, demanda.status)
+    descricao = f"{usuario.nome} voltou a demanda de Em validação para Em andamento."
+    comentario = (comentario or "").strip()
+    if comentario:
+        descricao += f" Comentário: {comentario}"
+    _registrar(demanda, usuario, TipoEvento.RETOMADA, descricao)
+    db.session.commit()
+
+
 def cancelar(usuario, demanda, motivo):
     if not permissoes.pode_cancelar(usuario.perfil):
         raise PermissaoNegada("Apenas Gerente, Chefe de Divisão ou Gestor do Plano podem cancelar demandas.")
@@ -500,6 +528,8 @@ def acoes_disponiveis(usuario, demanda):
         acoes.add(Acao.ENVIAR_REVISAO)
     if status == Status.EM_REVISAO and permissoes.pode_revisar(perfil, eh_atribuido):
         acoes.update({Acao.APROVAR, Acao.DEVOLVER})
+    if status == Status.EM_REVISAO and permissoes.pode_voltar_andamento(perfil):
+        acoes.add(Acao.RETOMAR)
     if permissoes.pode_atribuir_alguem(perfil) and transicao_permitida(Acao.ATRIBUIR, status):
         acoes.add(Acao.ATRIBUIR)
     if permissoes.pode_cancelar(perfil) and transicao_permitida(Acao.CANCELAR, status):
@@ -547,7 +577,7 @@ def _base_visivel(usuario):
 def consultar(usuario, filtros=None):
     """Consulta demandas visíveis ao usuário, aplicando filtros e ordenando por prioridade.
 
-    filtros: eixo_id, status, atribuido_id, faixa ('alta'|'media'|'baixa'|'pendente'),
+    filtros: eixo_id, status, atribuido_id, divisao, divisao_responsavel, faixa ('alta'|'media'|'baixa'|'pendente'),
              atrasadas (bool), busca (texto), incluir_canceladas (bool)
     """
     filtros = filtros or {}
@@ -561,6 +591,11 @@ def consultar(usuario, filtros=None):
         consulta = consulta.filter(Demanda.status != Status.CANCELADA)
     if filtros.get("atribuido_id"):
         consulta = consulta.filter(Demanda.atribuido_id == filtros["atribuido_id"])
+    if filtros.get("divisao"):
+        consulta = consulta.filter(Demanda.divisao == filtros["divisao"])
+    if filtros.get("divisao_responsavel"):
+        # Divisão do cadastro do responsável (não a informada na demanda)
+        consulta = consulta.filter(Demanda.atribuido.has(Usuario.divisao == filtros["divisao_responsavel"]))
 
     faixa = filtros.get("faixa")
     if faixa == "pendente":
@@ -611,8 +646,14 @@ def quadro(usuario, filtros=None):
     return colunas
 
 
+def _da_divisao(usuario, demanda):
+    """A demanda é da divisão do usuário? Aceita divisões compostas, como "DPO/DIO"."""
+    return bool(usuario.divisao) and usuario.divisao in (demanda.divisao or "").split("/")
+
+
 def minhas(usuario):
-    """Painel pessoal: o que precisa da atenção do usuário."""
+    """Painel pessoal: o que precisa da atenção do usuário.
+    Gestor do Plano: além das próprias, só vê demandas da sua divisão (vale apenas nesta tela)."""
     nao_finais = Demanda.status.notin_(list(Status.FINAIS))
     ordem = (Demanda.prioridade.desc().nullslast(), _prazo_final().asc().nullslast())
 
@@ -636,4 +677,8 @@ def minhas(usuario):
         resultado["revisao"] = [
             d for d in revisao if permissoes.pode_revisar(usuario.perfil, _eh_atribuido(usuario, d))
         ]
+        if usuario.perfil == Perfil.GESTOR_PLANO:
+            resultado["revisao"] = [
+                d for d in resultado["revisao"] if _eh_atribuido(usuario, d) or _da_divisao(usuario, d)
+            ]
     return resultado
