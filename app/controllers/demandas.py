@@ -9,6 +9,7 @@ from ..models import Eixo
 from ..services import demanda_service, exportacao_service, permissoes, usuario_service
 from ..services.erros import RegraNegocioError
 from ..services.fluxo import Acao, Status
+from ..services.perfis import Perfil
 
 bp = Blueprint("demandas", __name__)
 
@@ -103,6 +104,9 @@ def lista():
 @bp.route("/minhas")
 @login_required
 def minhas():
+    # Usuário Comum já só vê as próprias demandas no quadro: a aba não existe para ele
+    if current_user.perfil == Perfil.USUARIO:
+        return redirect(url_for("demandas.quadro"))
     return render_template("demandas/minhas.html", grupos=demanda_service.minhas(current_user))
 
 

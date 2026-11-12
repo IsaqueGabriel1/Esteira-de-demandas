@@ -308,3 +308,15 @@ def test_prazo_acordado_pela_tela_da_demanda(client, login, usuarios, nova_deman
     resposta = client.post(f"/demandas/{d.id}/prazo-acordado", data={"prazo_acordado": "2030-01-15"})
     assert resposta.status_code == 302
     assert d.prazo_acordado.isoformat() == "2030-01-15"
+
+
+def test_usuario_comum_nao_tem_minhas_demandas(client, login, usuarios):
+    login(usuarios["usuario"])
+    assert b'href="/minhas"' not in client.get("/quadro").data
+    resposta = client.get("/minhas")
+    assert resposta.status_code == 302 and "/quadro" in resposta.headers["Location"]
+    client.post("/logout")
+
+    login(usuarios["chefe"])
+    assert b'href="/minhas"' in client.get("/quadro").data
+    assert client.get("/minhas").status_code == 200
