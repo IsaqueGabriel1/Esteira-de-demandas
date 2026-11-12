@@ -132,6 +132,7 @@ def detalhe(demanda_id):
         demanda=demanda,
         acoes=demanda_service.acoes_disponiveis(current_user, demanda),
         pode_prazo_acordado=demanda_service.pode_definir_prazo_acordado(current_user, demanda),
+        pode_pasta_rede=demanda_service.pode_definir_pasta_rede(current_user, demanda),
         usuarios=usuario_service.listar_ativos(),
     )
 
@@ -217,6 +218,19 @@ def definir_gut(demanda_id):
             _int(request.form.get("tendencia")),
         )
         flash(f"Prioridade definida: P = {demanda.prioridade}." if alterou else "Os pesos não mudaram.", "success")
+    except RegraNegocioError as erro:
+        db.session.rollback()
+        flash(erro.mensagem, "danger")
+    return redirect(url_for("demandas.detalhe", demanda_id=demanda.id))
+
+
+@bp.route("/demandas/<int:demanda_id>/pasta-rede", methods=["POST"])
+@login_required
+def definir_pasta_rede(demanda_id):
+    demanda = _obter_ou_404(demanda_id)
+    try:
+        alterou = demanda_service.definir_pasta_rede(current_user, demanda, request.form.get("pasta_rede"))
+        flash("Pasta da rede salva." if alterou else "A pasta da rede não mudou.", "success")
     except RegraNegocioError as erro:
         db.session.rollback()
         flash(erro.mensagem, "danger")

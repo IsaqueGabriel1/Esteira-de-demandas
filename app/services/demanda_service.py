@@ -18,6 +18,7 @@ from .perfis import Perfil
 from .fluxo import Acao, Status, acao_por_arraste, proximo_status, transicao_permitida
 
 TAMANHO_MINIMO_JUSTIFICATIVA = 10
+TAMANHO_MAXIMO_PASTA_REDE = 500
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +144,30 @@ def definir_gut(usuario, demanda, gravidade, urgencia, tendencia):
     alterou = _aplicar_gut(usuario, demanda, gravidade, urgencia, tendencia)
     db.session.commit()
     return alterou
+
+
+# ---------------------------------------------------------------------------
+# Pasta da rede
+# ---------------------------------------------------------------------------
+
+def pode_definir_pasta_rede(usuario, demanda):
+    """Quem trabalha na demanda (responsável e apoio) atualiza a pasta na tela da demanda."""
+    return (_eh_atribuido(usuario, demanda) or usuario in demanda.apoios) and not demanda.finalizada
+
+
+def definir_pasta_rede(usuario, demanda, pasta_rede):
+    if not (_eh_atribuido(usuario, demanda) or usuario in demanda.apoios):
+        raise PermissaoNegada("Somente o responsável e os usuários de apoio podem alterar a pasta da rede.")
+    _exigir_nao_finalizada(demanda)
+    pasta_rede = _texto_opcional(pasta_rede)
+    if pasta_rede and len(pasta_rede) > TAMANHO_MAXIMO_PASTA_REDE:
+        raise RegraNegocioError(f"A pasta da rede deve ter no máximo {TAMANHO_MAXIMO_PASTA_REDE} caracteres.")
+    if demanda.pasta_rede == pasta_rede:
+        return False
+    demanda.pasta_rede = pasta_rede
+    _registrar(demanda, usuario, TipoEvento.EDICAO, "Alterado: pasta da rede.")
+    db.session.commit()
+    return True
 
 
 # ---------------------------------------------------------------------------

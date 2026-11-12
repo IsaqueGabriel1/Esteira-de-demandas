@@ -342,6 +342,22 @@ def test_prazo_acordado_define_o_atraso(usuarios, nova_demanda):
     assert d.prazo_acordado is None
 
 
+def test_responsavel_e_apoio_alteram_a_pasta_da_rede(usuarios, nova_demanda):
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id, apoio_ids=[usuarios["usuario2"].id])
+    assert svc.definir_pasta_rede(usuarios["usuario"], d, r"  \\servidor\outorgas  ")
+    assert d.pasta_rede == r"\\servidor\outorgas"
+    assert d.historico[0].descricao == "Alterado: pasta da rede."
+    assert svc.definir_pasta_rede(usuarios["usuario2"], d, "")
+    assert d.pasta_rede is None
+    assert not svc.definir_pasta_rede(usuarios["usuario2"], d, "  ")  # nada mudou
+
+    assert not svc.pode_definir_pasta_rede(usuarios["chefe"], d)
+    with pytest.raises(PermissaoNegada):
+        svc.definir_pasta_rede(usuarios["chefe"], d, "x")
+    with pytest.raises(RegraNegocioError):
+        svc.definir_pasta_rede(usuarios["usuario"], d, "x" * 501)
+
+
 def test_somente_o_responsavel_define_o_prazo_acordado(usuarios, nova_demanda):
     d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
     for outro in ("gerente", "chefe", "usuario2"):

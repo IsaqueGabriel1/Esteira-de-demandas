@@ -76,8 +76,15 @@
           {% endif %}
           <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" data-copiar="{{ demanda.pasta_rede }}" title="Copiar"><i class="bi bi-clipboard"></i> Copiar</button>
         </div>
-        {% else %}
+        {% elif not pode_pasta_rede %}
         <p class="text-muted mb-0">Não informada.</p>
+        {% endif %}
+        {% if pode_pasta_rede %}
+        <form method="post" action="{{ url_for('demandas.definir_pasta_rede', demanda_id=demanda.id) }}" class="d-flex gap-2 mt-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="text" name="pasta_rede" maxlength="500" class="form-control form-control-sm" value="{{ demanda.pasta_rede or '' }}" placeholder="Ex.: \\servidor\outorgas\trabalho">
+          <button class="btn btn-sm btn-primary flex-shrink-0">Salvar</button>
+        </form>
         {% endif %}
       </div>
     </div>

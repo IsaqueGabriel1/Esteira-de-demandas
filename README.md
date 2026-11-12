@@ -105,6 +105,7 @@ Qualquer status não final → cancelar (motivo) → Cancelada
 ```
 - Gestor que atribui a demanda a si mesmo já fica "Não iniciada" (aceite automático).
 - Recusada volta para quem atribuiu (aparece em **Minhas demandas › Recusadas**).
+- A **Pasta da Rede** também pode ser alterada pelo responsável e pelos usuários de apoio, direto na tela da demanda.
 - Demanda não finalizada com prazo vencido é destacada como **Atrasada**. O prazo é o **Prazo acordado** (definido pelo responsável na tela da demanda) ou, se ele estiver vazio, a data de término.
 - No quadro, arrastar o card só é permitido para: aceitar, iniciar, enviar para revisão e aprovar, sempre uma etapa por vez. Ações que pedem texto (recusar, devolver, cancelar, atribuir) ficam na tela da demanda.
 
