@@ -7,7 +7,7 @@ estas funções e tratam RegraNegocioError.
 """
 from datetime import date, timedelta
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from ..extensions import db
 from ..models import Demanda, Eixo, HistoricoDemanda, TipoEvento, Usuario, demanda_apoio
@@ -18,6 +18,7 @@ from .perfis import Perfil
 from .fluxo import Acao, Status, acao_por_arraste, proximo_status, transicao_permitida
 
 TAMANHO_MINIMO_JUSTIFICATIVA = 10
+TAMANHO_MAXIMO_PASTA_REDE = 500
 
 
 # ---------------------------------------------------------------------------
@@ -51,6 +52,11 @@ def _justificativa(valor, nome="justificativa"):
 def _validar_datas(inicio, termino):
     if inicio and termino and termino < inicio:
         raise RegraNegocioError("A data de término deve ser igual ou posterior à data de início.")
+
+
+def _prazo_final():
+    """Equivalente em SQL de Demanda.prazo_final."""
+    return func.coalesce(Demanda.prazo_acordado, Demanda.termino)
 
 
 def _buscar_eixo(eixo_id):
@@ -141,6 +147,56 @@ def definir_gut(usuario, demanda, gravidade, urgencia, tendencia):
 
 
 # ---------------------------------------------------------------------------
+# Pasta da rede
+# ---------------------------------------------------------------------------
+
+def pode_definir_pasta_rede(usuario, demanda):
+    """Quem trabalha na demanda (responsável e apoio) atualiza a pasta na tela da demanda."""
+    return (_eh_atribuido(usuario, demanda) or usuario in demanda.apoios) and not demanda.finalizada
+
+
+def definir_pasta_rede(usuario, demanda, pasta_rede):
+    if not (_eh_atribuido(usuario, demanda) or usuario in demanda.apoios):
+        raise PermissaoNegada("Somente o responsável e os usuários de apoio podem alterar a pasta da rede.")
+    _exigir_nao_finalizada(demanda)
+    pasta_rede = _texto_opcional(pasta_rede)
+    if pasta_rede and len(pasta_rede) > TAMANHO_MAXIMO_PASTA_REDE:
+        raise RegraNegocioError(f"A pasta da rede deve ter no máximo {TAMANHO_MAXIMO_PASTA_REDE} caracteres.")
+    if demanda.pasta_rede == pasta_rede:
+        return False
+    demanda.pasta_rede = pasta_rede
+    _registrar(demanda, usuario, TipoEvento.EDICAO, "Alterado: pasta da rede.")
+    db.session.commit()
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Prazo acordado
+# ---------------------------------------------------------------------------
+
+def pode_definir_prazo_acordado(usuario, demanda):
+    return _eh_atribuido(usuario, demanda) and not demanda.finalizada
+
+
+def definir_prazo_acordado(usuario, demanda, prazo_acordado):
+    """Só o responsável pela demanda define o prazo acordado (vazio = volta a valer o término)."""
+    if not _eh_atribuido(usuario, demanda):
+        raise PermissaoNegada("Somente o responsável pela demanda pode definir o prazo acordado.")
+    _exigir_nao_finalizada(demanda)
+    if demanda.inicio and prazo_acordado and prazo_acordado < demanda.inicio:
+        raise RegraNegocioError("O prazo acordado deve ser igual ou posterior à data de início.")
+    if demanda.prazo_acordado == prazo_acordado:
+        return False
+    _registrar(
+        demanda, usuario, TipoEvento.EDICAO,
+        f"Prazo acordado: {_formatar_data(demanda.prazo_acordado)} → {_formatar_data(prazo_acordado)}.",
+    )
+    demanda.prazo_acordado = prazo_acordado
+    db.session.commit()
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Usuários de apoio
 # ---------------------------------------------------------------------------
 
@@ -182,7 +238,7 @@ def _atribuir(usuario, demanda, destino):
         raise RegraNegocioError(
             f"Não é possível atribuir uma demanda com status '{demanda.status_rotulo}'."
         )
-    if demanda.atribuido_id == destino.id and demanda.status in (Status.AGUARDANDO_ACEITE, Status.EM_ANDAMENTO):
+    if demanda.atribuido_id == destino.id and demanda.status in (Status.AGUARDANDO_ACEITE, Status.NAO_INICIADA, Status.EM_ANDAMENTO):
         return  # nada mudou
 
     anterior = demanda.atribuido
@@ -199,7 +255,7 @@ def _atribuir(usuario, demanda, destino):
 
     if destino.id == usuario.id:
         # Gestor atribuindo a si mesmo: aceite automático
-        demanda.status = Status.EM_ANDAMENTO
+        demanda.status = Status.NAO_INICIADA
         descricao = f"{usuario.nome} assumiu a demanda (aceite automático)."
     else:
         demanda.status = proximo_status(Acao.ATRIBUIR, demanda.status)
@@ -329,6 +385,14 @@ def aceitar(usuario, demanda):
     db.session.commit()
 
 
+def iniciar(usuario, demanda):
+    if not _eh_atribuido(usuario, demanda):
+        raise PermissaoNegada("Somente o usuário atribuído pode iniciar a demanda.")
+    demanda.status = proximo_status(Acao.INICIAR, demanda.status)
+    _registrar(demanda, usuario, TipoEvento.INICIO, f"{usuario.nome} iniciou a demanda.")
+    db.session.commit()
+
+
 def recusar(usuario, demanda, justificativa):
     if not _eh_atribuido(usuario, demanda):
         raise PermissaoNegada("Somente o usuário atribuído pode recusar a demanda.")
@@ -411,6 +475,8 @@ def mover_por_arraste(usuario, demanda, status_destino):
     acao = acao_por_arraste(demanda.status, status_destino)
     if acao == Acao.ACEITAR:
         aceitar(usuario, demanda)
+    elif acao == Acao.INICIAR:
+        iniciar(usuario, demanda)
     elif acao == Acao.ENVIAR_REVISAO:
         enviar_revisao(usuario, demanda)
     elif acao == Acao.APROVAR:
@@ -428,6 +494,8 @@ def acoes_disponiveis(usuario, demanda):
 
     if eh_atribuido and status == Status.AGUARDANDO_ACEITE:
         acoes.update({Acao.ACEITAR, Acao.RECUSAR})
+    if eh_atribuido and status == Status.NAO_INICIADA:
+        acoes.add(Acao.INICIAR)
     if eh_atribuido and status == Status.EM_ANDAMENTO:
         acoes.add(Acao.ENVIAR_REVISAO)
     if status == Status.EM_REVISAO and permissoes.pode_revisar(perfil, eh_atribuido):
@@ -504,7 +572,7 @@ def consultar(usuario, filtros=None):
 
     if filtros.get("atrasadas"):
         consulta = consulta.filter(
-            Demanda.termino < date.today(), Demanda.status.notin_(list(Status.FINAIS))
+            _prazo_final() < date.today(), Demanda.status.notin_(list(Status.FINAIS))
         )
 
     busca = (filtros.get("busca") or "").strip()
@@ -517,7 +585,7 @@ def consultar(usuario, filtros=None):
 
     return consulta.order_by(
         Demanda.prioridade.desc().nullslast(),
-        Demanda.termino.asc().nullslast(),
+        _prazo_final().asc().nullslast(),
         Demanda.id.asc(),
     )
 
@@ -546,7 +614,7 @@ def quadro(usuario, filtros=None):
 def minhas(usuario):
     """Painel pessoal: o que precisa da atenção do usuário."""
     nao_finais = Demanda.status.notin_(list(Status.FINAIS))
-    ordem = (Demanda.prioridade.desc().nullslast(), Demanda.termino.asc().nullslast())
+    ordem = (Demanda.prioridade.desc().nullslast(), _prazo_final().asc().nullslast())
 
     resultado = {
         "pendentes_aceite": Demanda.query.filter(

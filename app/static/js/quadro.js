@@ -5,7 +5,8 @@
   // Movimentos aceitos por arraste (espelha app/services/fluxo.py -> ACOES_POR_ARRASTE).
   // O servidor sempre valida novamente; isto serve apenas para destacar as colunas possíveis.
   var MOVIMENTOS = {
-    'AGUARDANDO_ACEITE': ['EM_ANDAMENTO'],
+    'AGUARDANDO_ACEITE': ['NAO_INICIADA'],
+    'NAO_INICIADA': ['EM_ANDAMENTO'],
     'EM_ANDAMENTO': ['EM_REVISAO'],
     'EM_REVISAO': ['CONCLUIDA']
   };

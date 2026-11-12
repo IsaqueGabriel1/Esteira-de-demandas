@@ -97,16 +97,17 @@ O campo "Usuário atribuído" lista todos os usuários; os que o perfil logado n
 
 ### Fluxo da demanda
 ```
-A atribuir → Aguardando aceite → Em andamento → Em revisão → Concluída
+A atribuir → Aguardando aceite → Não iniciada → Em andamento → Em validação → Concluída
 
 Aguardando aceite → Recusada (justificativa) → reatribuir → Aguardando aceite
-Em revisão → devolver (motivo) → Em andamento
+Em validação → devolver (motivo) → Em andamento
 Qualquer status não final → cancelar (motivo) → Cancelada
 ```
-- Gestor que atribui a demanda a si mesmo já fica "Em andamento" (aceite automático).
+- Gestor que atribui a demanda a si mesmo já fica "Não iniciada" (aceite automático).
 - Recusada volta para quem atribuiu (aparece em **Minhas demandas › Recusadas**).
-- Demanda com término vencido e não finalizada é destacada como **Atrasada**.
-- No quadro, arrastar o card só é permitido para: aceitar, enviar para revisão e aprovar. Ações que pedem texto (recusar, devolver, cancelar, atribuir) ficam na tela da demanda.
+- A **Pasta da Rede** também pode ser alterada pelo responsável e pelos usuários de apoio, direto na tela da demanda.
+- Demanda não finalizada com prazo vencido é destacada como **Atrasada**. O prazo é o **Prazo acordado** (definido pelo responsável na tela da demanda) ou, se ele estiver vazio, a data de término.
+- No quadro, arrastar o card só é permitido para: aceitar, iniciar, enviar para revisão e aprovar, sempre uma etapa por vez. Ações que pedem texto (recusar, devolver, cancelar, atribuir) ficam na tela da demanda.
 
 ### Divisões
 - Cadastradas pelo Administrador no menu **Divisões**. Cada divisão indica onde aparece: no **cadastro de usuários** (criação de conta, Usuários e "Minha divisão") e/ou nas **demandas** (criação e edição).

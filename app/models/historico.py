@@ -7,6 +7,7 @@ class TipoEvento:
     EDICAO = "EDICAO"
     ATRIBUICAO = "ATRIBUICAO"
     ACEITE = "ACEITE"
+    INICIO = "INICIO"
     RECUSA = "RECUSA"
     GUT = "GUT"
     APOIO = "APOIO"
@@ -20,6 +21,7 @@ class TipoEvento:
         EDICAO: "Edição",
         ATRIBUICAO: "Atribuição",
         ACEITE: "Aceite",
+        INICIO: "Início",
         RECUSA: "Recusa",
         GUT: "Priorização GUT",
         APOIO: "Usuários de apoio",
@@ -33,6 +35,7 @@ class TipoEvento:
         EDICAO: "bi-pencil",
         ATRIBUICAO: "bi-person-plus",
         ACEITE: "bi-check-circle",
+        INICIO: "bi-play-circle",
         RECUSA: "bi-x-circle",
         GUT: "bi-bar-chart",
         APOIO: "bi-people",

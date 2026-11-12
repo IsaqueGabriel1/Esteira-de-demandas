@@ -1,3 +1,5 @@
+from datetime import date
+
 from flask import Blueprint, Response, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
@@ -129,6 +131,8 @@ def detalhe(demanda_id):
         "demandas/detalhe.html",
         demanda=demanda,
         acoes=demanda_service.acoes_disponiveis(current_user, demanda),
+        pode_prazo_acordado=demanda_service.pode_definir_prazo_acordado(current_user, demanda),
+        pode_pasta_rede=demanda_service.pode_definir_pasta_rede(current_user, demanda),
         usuarios=usuario_service.listar_ativos(),
     )
 
@@ -166,6 +170,7 @@ def executar_acao(demanda_id, acao):
     mensagens = {
         Acao.ATRIBUIR: "Demanda atribuída.",
         Acao.ACEITAR: "Você aceitou a demanda.",
+        Acao.INICIAR: "Demanda iniciada.",
         Acao.RECUSAR: "Demanda recusada. Ela voltou para quem atribuiu.",
         Acao.ENVIAR_REVISAO: "Entrega enviada para revisão.",
         Acao.APROVAR: "Entrega aprovada. Demanda concluída.",
@@ -179,6 +184,8 @@ def executar_acao(demanda_id, acao):
             demanda_service.atribuir(current_user, demanda, _int(request.form.get("atribuido_id")))
         elif acao == Acao.ACEITAR:
             demanda_service.aceitar(current_user, demanda)
+        elif acao == Acao.INICIAR:
+            demanda_service.iniciar(current_user, demanda)
         elif acao == Acao.RECUSAR:
             demanda_service.recusar(current_user, demanda, texto)
         elif acao == Acao.ENVIAR_REVISAO:
@@ -211,6 +218,37 @@ def definir_gut(demanda_id):
             _int(request.form.get("tendencia")),
         )
         flash(f"Prioridade definida: P = {demanda.prioridade}." if alterou else "Os pesos não mudaram.", "success")
+    except RegraNegocioError as erro:
+        db.session.rollback()
+        flash(erro.mensagem, "danger")
+    return redirect(url_for("demandas.detalhe", demanda_id=demanda.id))
+
+
+@bp.route("/demandas/<int:demanda_id>/pasta-rede", methods=["POST"])
+@login_required
+def definir_pasta_rede(demanda_id):
+    demanda = _obter_ou_404(demanda_id)
+    try:
+        alterou = demanda_service.definir_pasta_rede(current_user, demanda, request.form.get("pasta_rede"))
+        flash("Pasta da rede salva." if alterou else "A pasta da rede não mudou.", "success")
+    except RegraNegocioError as erro:
+        db.session.rollback()
+        flash(erro.mensagem, "danger")
+    return redirect(url_for("demandas.detalhe", demanda_id=demanda.id))
+
+
+@bp.route("/demandas/<int:demanda_id>/prazo-acordado", methods=["POST"])
+@login_required
+def definir_prazo_acordado(demanda_id):
+    demanda = _obter_ou_404(demanda_id)
+    try:
+        valor = (request.form.get("prazo_acordado") or "").strip()
+        try:
+            prazo = date.fromisoformat(valor) if valor else None
+        except ValueError:
+            raise RegraNegocioError("Data inválida para o prazo acordado.")
+        alterou = demanda_service.definir_prazo_acordado(current_user, demanda, prazo)
+        flash("Prazo acordado salvo." if alterou else "O prazo acordado não mudou.", "success")
     except RegraNegocioError as erro:
         db.session.rollback()
         flash(erro.mensagem, "danger")

@@ -22,9 +22,9 @@
 {%- endmacro %}
 
 {% macro prazo(demanda) -%}
-  {%- if demanda.termino -%}
-  <span class="{{ 'text-danger fw-semibold' if demanda.atrasada else 'text-muted' }}">
-    <i class="bi bi-calendar-event"></i> {{ demanda.termino|data_br }}
+  {%- if demanda.prazo_final -%}
+  <span class="{{ 'text-danger fw-semibold' if demanda.atrasada else 'text-muted' }}"{% if demanda.prazo_acordado %} title="Prazo acordado"{% endif %}>
+    <i class="bi bi-calendar-{{ 'check' if demanda.prazo_acordado else 'event' }}"></i> {{ demanda.prazo_final|data_br }}
     {%- if demanda.atrasada %} <span class="badge bg-danger">Atrasada</span>{% endif %}
   </span>
   {%- else -%}

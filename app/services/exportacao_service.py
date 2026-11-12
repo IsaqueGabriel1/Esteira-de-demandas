@@ -12,7 +12,7 @@ except Exception:
 
 CABECALHO = [
     "ID", "Eixo", "Divisão", "Ação", "Produto / Entrega", "Pasta da Rede", "Status", "Atrasada", "Início", "Término",
-    "Responsável", "Apoio", "G", "U", "T", "Prioridade (P)", "Faixa", "Criada em",
+    "Prazo acordado", "Responsável", "Apoio", "G", "U", "T", "Prioridade (P)", "Faixa", "Criada em",
 ]
 
 
@@ -37,6 +37,7 @@ def demandas_para_csv(demandas):
             "Sim" if d.atrasada else "Não",
             _data(d.inicio),
             _data(d.termino),
+            _data(d.prazo_acordado),
             d.atribuido.nome if d.atribuido else "",
             ", ".join(u.nome for u in d.apoios),
             d.gravidade or "",
