@@ -547,7 +547,7 @@ def _base_visivel(usuario):
 def consultar(usuario, filtros=None):
     """Consulta demandas visíveis ao usuário, aplicando filtros e ordenando por prioridade.
 
-    filtros: eixo_id, status, atribuido_id, faixa ('alta'|'media'|'baixa'|'pendente'),
+    filtros: eixo_id, status, atribuido_id, divisao, divisao_responsavel, faixa ('alta'|'media'|'baixa'|'pendente'),
              atrasadas (bool), busca (texto), incluir_canceladas (bool)
     """
     filtros = filtros or {}
@@ -561,6 +561,11 @@ def consultar(usuario, filtros=None):
         consulta = consulta.filter(Demanda.status != Status.CANCELADA)
     if filtros.get("atribuido_id"):
         consulta = consulta.filter(Demanda.atribuido_id == filtros["atribuido_id"])
+    if filtros.get("divisao"):
+        consulta = consulta.filter(Demanda.divisao == filtros["divisao"])
+    if filtros.get("divisao_responsavel"):
+        # Divisão do cadastro do responsável (não a informada na demanda)
+        consulta = consulta.filter(Demanda.atribuido.has(Usuario.divisao == filtros["divisao_responsavel"]))
 
     faixa = filtros.get("faixa")
     if faixa == "pendente":
@@ -611,8 +616,14 @@ def quadro(usuario, filtros=None):
     return colunas
 
 
+def _da_divisao(usuario, demanda):
+    """A demanda é da divisão do usuário? Aceita divisões compostas, como "DPO/DIO"."""
+    return bool(usuario.divisao) and usuario.divisao in (demanda.divisao or "").split("/")
+
+
 def minhas(usuario):
-    """Painel pessoal: o que precisa da atenção do usuário."""
+    """Painel pessoal: o que precisa da atenção do usuário.
+    Gestor do Plano: além das próprias, só vê demandas da sua divisão (vale apenas nesta tela)."""
     nao_finais = Demanda.status.notin_(list(Status.FINAIS))
     ordem = (Demanda.prioridade.desc().nullslast(), _prazo_final().asc().nullslast())
 
@@ -636,4 +647,8 @@ def minhas(usuario):
         resultado["revisao"] = [
             d for d in revisao if permissoes.pode_revisar(usuario.perfil, _eh_atribuido(usuario, d))
         ]
+        if usuario.perfil == Perfil.GESTOR_PLANO:
+            resultado["revisao"] = [
+                d for d in resultado["revisao"] if _eh_atribuido(usuario, d) or _da_divisao(usuario, d)
+            ]
     return resultado

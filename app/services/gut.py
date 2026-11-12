@@ -9,9 +9,9 @@ PESO_MAX = 5
 
 # (limite inferior, limite superior, rótulo, classe css)
 FAIXAS = (
-    (1, 27, "Baixa", "baixa"),
-    (28, 63, "Média", "media"),
-    (64, 125, "Alta", "alta"),
+    (1, 17, "Baixa", "baixa"),
+    (18, 47, "Média", "media"),
+    (48, 125, "Alta", "alta"),
 )
 FAIXA_PENDENTE = ("Aguardando priorização", "pendente")
 

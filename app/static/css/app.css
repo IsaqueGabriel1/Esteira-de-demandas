@@ -91,6 +91,8 @@ a { color: var(--cor-primaria); }
 .tipo-aceite, .tipo-aprovacao { color: #198754; }
 .tipo-gut { color: var(--prio-media); }
 .indicador .card-body { padding: .9rem 1rem; }
+.info-indicador { color: #8a94a6; cursor: help; font-size: .85em; }
+.info-indicador:hover, .info-indicador:focus { color: var(--cor-primaria); outline: none; }
 .filtros { border: 0; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
 
 /* Select2 dentro de formulários Bootstrap */

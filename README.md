@@ -116,7 +116,7 @@ Qualquer status não final → cancelar (motivo) → Cancelada
 
 ### Matriz GUT
 - G, U e T: inteiros de 1 a 5. **P = G × U × T** (1 a 125), calculado pelo sistema.
-- Faixas: **Baixa** 1–27 · **Média** 28–63 · **Alta** 64–125 (ajustáveis em `app/services/gut.py`).
+- Faixas: **Baixa** 1–17 · **Média** 18–47 · **Alta** 48–125 (ajustáveis em `app/services/gut.py`).
 - Sem os três pesos: "Aguardando priorização" (fica por último na ordenação).
 - Toda alteração de pesos é registrada no histórico com valores antigos e novos.
 

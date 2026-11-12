@@ -320,3 +320,17 @@ def test_usuario_comum_nao_tem_minhas_demandas(client, login, usuarios):
     login(usuarios["chefe"])
     assert b'href="/minhas"' in client.get("/quadro").data
     assert client.get("/minhas").status_code == 200
+
+
+def test_filtros_dos_indicadores(client, login, usuarios, nova_demanda):
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id, divisao="DPO")
+    login(usuarios["gerente"])
+    resposta = client.get(f"/indicadores/?usuario={usuarios['usuario'].id}&divisao=DPO")
+    assert resposta.status_code == 200
+    assert b'name="usuario"' in resposta.data and b'name="divisao"' in resposta.data
+    client.post("/logout")
+
+    login(usuarios["usuario"])
+    resposta = client.get(f"/indicadores/?usuario={usuarios['usuario2'].id}")
+    assert resposta.status_code == 200
+    assert b'name="usuario"' not in resposta.data  # só vê as próprias demandas
