@@ -232,6 +232,16 @@ def _validar_permissao_atribuicao(usuario, destino):
     raise PermissaoNegada(f"O {usuario.perfil_rotulo} {permissoes.descrever_atribuicao(usuario.perfil)}.")
 
 
+def pendencias_para_atribuir(demanda):
+    """O que falta para a demanda poder ser atribuída: prazo e priorização GUT."""
+    pendencias = []
+    if not demanda.prazo_final:
+        pendencias.append("preencha o prazo (data de término)")
+    if not demanda.tem_gut:
+        pendencias.append("defina a prioridade (pesos GUT)")
+    return pendencias
+
+
 def _atribuir(usuario, demanda, destino):
     _validar_permissao_atribuicao(usuario, destino)
     if not transicao_permitida(Acao.ATRIBUIR, demanda.status):
@@ -240,6 +250,9 @@ def _atribuir(usuario, demanda, destino):
         )
     if demanda.atribuido_id == destino.id and demanda.status in (Status.AGUARDANDO_ACEITE, Status.NAO_INICIADA, Status.EM_ANDAMENTO):
         return  # nada mudou
+    pendencias = pendencias_para_atribuir(demanda)
+    if pendencias:
+        raise RegraNegocioError("Para atribuir a demanda, " + " e ".join(pendencias) + ".")
 
     anterior = demanda.atribuido
     demanda.atribuido = destino
@@ -456,6 +469,21 @@ def devolver(usuario, demanda, motivo):
     db.session.commit()
 
 
+def retomar(usuario, demanda, comentario=None):
+    """Volta de Em validação para Em andamento. Não é uma devolução da revisão: não entra na taxa de devolução."""
+    if not permissoes.pode_voltar_andamento(usuario.perfil):
+        raise PermissaoNegada("Você não tem permissão para voltar a demanda para Em andamento.")
+    if not pode_ver(usuario, demanda):
+        raise PermissaoNegada("Você não tem acesso a esta demanda.")
+    demanda.status = proximo_status(Acao.RETOMAR, demanda.status)
+    descricao = f"{usuario.nome} voltou a demanda de Em validação para Em andamento."
+    comentario = (comentario or "").strip()
+    if comentario:
+        descricao += f" Comentário: {comentario}"
+    _registrar(demanda, usuario, TipoEvento.RETOMADA, descricao)
+    db.session.commit()
+
+
 def cancelar(usuario, demanda, motivo):
     if not permissoes.pode_cancelar(usuario.perfil):
         raise PermissaoNegada("Apenas Gerente, Chefe de Divisão ou Gestor do Plano podem cancelar demandas.")
@@ -500,6 +528,8 @@ def acoes_disponiveis(usuario, demanda):
         acoes.add(Acao.ENVIAR_REVISAO)
     if status == Status.EM_REVISAO and permissoes.pode_revisar(perfil, eh_atribuido):
         acoes.update({Acao.APROVAR, Acao.DEVOLVER})
+    if status == Status.EM_REVISAO and permissoes.pode_voltar_andamento(perfil):
+        acoes.add(Acao.RETOMAR)
     if permissoes.pode_atribuir_alguem(perfil) and transicao_permitida(Acao.ATRIBUIR, status):
         acoes.add(Acao.ATRIBUIR)
     if permissoes.pode_cancelar(perfil) and transicao_permitida(Acao.CANCELAR, status):

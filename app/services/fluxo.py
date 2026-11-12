@@ -5,7 +5,7 @@ Fluxo principal:
 
 Desvios:
     Aguardando aceite → Recusada (com justificativa; volta para quem atribuiu)
-    Em validação → Em andamento (devolvida para ajustes)
+    Em validação → Em andamento (devolvida para ajustes, ou retomada por quem tem a permissão)
     qualquer status não final → Cancelada
 """
 from .erros import TransicaoInvalida
@@ -51,9 +51,10 @@ class Acao:
     ENVIAR_REVISAO = "enviar_revisao"
     APROVAR = "aprovar"
     DEVOLVER = "devolver"
+    RETOMAR = "retomar"
     CANCELAR = "cancelar"
 
-    TODAS = (ATRIBUIR, ACEITAR, INICIAR, RECUSAR, ENVIAR_REVISAO, APROVAR, DEVOLVER, CANCELAR)
+    TODAS = (ATRIBUIR, ACEITAR, INICIAR, RECUSAR, ENVIAR_REVISAO, APROVAR, DEVOLVER, RETOMAR, CANCELAR)
 
 
 _NAO_FINAIS = frozenset(Status.TODOS) - Status.FINAIS
@@ -70,6 +71,7 @@ TRANSICOES = {
     Acao.ENVIAR_REVISAO: (frozenset({Status.EM_ANDAMENTO}), Status.EM_REVISAO),
     Acao.APROVAR: (frozenset({Status.EM_REVISAO}), Status.CONCLUIDA),
     Acao.DEVOLVER: (frozenset({Status.EM_REVISAO}), Status.EM_ANDAMENTO),
+    Acao.RETOMAR: (frozenset({Status.EM_REVISAO}), Status.EM_ANDAMENTO),
     Acao.CANCELAR: (_NAO_FINAIS, Status.CANCELADA),
 }
 

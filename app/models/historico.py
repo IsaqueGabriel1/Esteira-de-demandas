@@ -14,6 +14,7 @@ class TipoEvento:
     ENVIO_REVISAO = "ENVIO_REVISAO"
     APROVACAO = "APROVACAO"
     DEVOLUCAO = "DEVOLUCAO"
+    RETOMADA = "RETOMADA"
     CANCELAMENTO = "CANCELAMENTO"
 
     ROTULOS = {
@@ -28,6 +29,7 @@ class TipoEvento:
         ENVIO_REVISAO: "Enviada para revisão",
         APROVACAO: "Aprovação",
         DEVOLUCAO: "Devolução",
+        RETOMADA: "Voltou para Em andamento",
         CANCELAMENTO: "Cancelamento",
     }
     ICONES = {
@@ -42,6 +44,7 @@ class TipoEvento:
         ENVIO_REVISAO: "bi-send",
         APROVACAO: "bi-patch-check",
         DEVOLUCAO: "bi-arrow-counterclockwise",
+        RETOMADA: "bi-arrow-left-circle",
         CANCELAMENTO: "bi-slash-circle",
     }
 

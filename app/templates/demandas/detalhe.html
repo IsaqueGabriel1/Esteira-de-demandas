@@ -38,7 +38,15 @@
     {% if Acao.DEVOLVER in acoes %}
     <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modal-devolver"><i class="bi bi-arrow-counterclockwise"></i> Devolver</button>
     {% endif %}
-    {% if Acao.ATRIBUIR in acoes %}
+    {% if Acao.RETOMAR in acoes %}
+    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-retomar"><i class="bi bi-arrow-left-circle"></i> Voltar para Em andamento</button>
+    {% endif %}
+    {% if Acao.ATRIBUIR in acoes and pendencias_atribuir %}
+    {# Só se atribui demanda com prazo e prioridade definidos #}
+    <span class="d-inline-block" tabindex="0" title="Para atribuir, {{ pendencias_atribuir|join(' e ') }}.">
+      <button class="btn btn-outline-primary" disabled><i class="bi bi-person-plus"></i> {{ 'Reatribuir' if demanda.atribuido else 'Atribuir' }}</button>
+    </span>
+    {% elif Acao.ATRIBUIR in acoes %}
     <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-atribuir"><i class="bi bi-person-plus"></i> {{ 'Reatribuir' if demanda.atribuido else 'Atribuir' }}</button>
     {% endif %}
     {% if permissoes.pode_editar_demanda(current_user.perfil) and not demanda.finalizada %}
@@ -216,6 +224,7 @@
 {% if Acao.ENVIAR_REVISAO in acoes %}{{ modal(Acao.ENVIAR_REVISAO, 'Enviar para revisão', 'Comentário sobre a entrega (opcional)', 'Enviar', 'btn-primary', obrigatorio=false) }}{% endif %}
 {% if Acao.APROVAR in acoes %}{{ modal(Acao.APROVAR, 'Aprovar entrega', 'Comentário (opcional)', 'Aprovar e concluir', 'btn-success', obrigatorio=false) }}{% endif %}
 {% if Acao.DEVOLVER in acoes %}{{ modal(Acao.DEVOLVER, 'Devolver para ajustes', 'O que precisa ser ajustado?', 'Devolver', 'btn-warning') }}{% endif %}
+{% if Acao.RETOMAR in acoes %}{{ modal(Acao.RETOMAR, 'Voltar para Em andamento', 'Comentário (opcional)', 'Voltar para Em andamento', 'btn-primary', obrigatorio=false) }}{% endif %}
 {% if Acao.CANCELAR in acoes %}{{ modal(Acao.CANCELAR, 'Cancelar demanda', 'Motivo do cancelamento', 'Cancelar demanda', 'btn-danger') }}{% endif %}
 
 {% if Acao.ATRIBUIR in acoes %}

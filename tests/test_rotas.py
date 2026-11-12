@@ -36,7 +36,7 @@ def test_criar_demanda_pelo_formulario(client, login, usuarios, eixo):
     resposta = client.post("/demandas/nova", data={
         "eixo_id": eixo.id, "acao": "Criar regra de negócio", "produto": "Documento de regra", "divisao": "DIO/DPO",
         "atribuido_id": usuarios["usuario"].id, "apoio_ids": [usuarios["usuario2"].id],
-        "gravidade": 3, "urgencia": 3, "tendencia": 3,
+        "gravidade": 3, "urgencia": 3, "tendencia": 3, "termino": "2030-12-31",
     })
     assert resposta.status_code == 302
     assert "/demandas/1" in resposta.headers["Location"]
@@ -334,3 +334,14 @@ def test_filtros_dos_indicadores(client, login, usuarios, nova_demanda):
     resposta = client.get(f"/indicadores/?usuario={usuarios['usuario2'].id}")
     assert resposta.status_code == 200
     assert b'name="usuario"' not in resposta.data  # só vê as próprias demandas
+
+def test_quadro_e_lista_filtram_pela_divisao_do_responsavel(client, login, usuarios, nova_demanda, db):
+    usuarios["usuario"].divisao, usuarios["usuario2"].divisao = "GGO", "SR"
+    db.session.commit()
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id, acao="Tarefa da GGO", divisao="DIO")
+    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario2"].id, acao="Tarefa da SR", divisao="DIO")
+    login(usuarios["gerente"])
+    for url in ("/quadro", "/demandas"):
+        resposta = client.get(f"{url}?divisao=GGO")
+        assert b'name="divisao"' in resposta.data
+        assert "Tarefa da GGO".encode() in resposta.data and "Tarefa da SR".encode() not in resposta.data

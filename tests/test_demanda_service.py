@@ -65,7 +65,7 @@ def test_chefe_nao_atribui_a_gerente_nem_a_outro_chefe(usuarios, nova_demanda):
 
 
 def test_chefe_nao_reatribui_a_chefe(db, usuarios, nova_demanda):
-    d = nova_demanda(usuarios["chefe"])
+    d = nova_demanda(usuarios["chefe"], termino=date.today(), gravidade=3, urgencia=3, tendencia=3)
     with pytest.raises(PermissaoNegada):
         svc.atribuir(usuarios["chefe"], d, usuarios["chefe2"].id)
     db.session.rollback()
@@ -464,7 +464,9 @@ def _ciclo_completo(usuarios, nova_demanda, db, dias_por_etapa, termino, conclui
     dias_por_etapa: (aguardando aceite, não iniciada, em andamento, em validação)."""
     from app.models.base import agora
 
-    d = nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id, termino=termino)
+    d = nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id)
+    d.termino = termino  # permite simular demandas antigas, atribuídas antes da exigência de prazo
+    db.session.commit()
     svc.aceitar(usuarios["usuario"], d)
     svc.iniciar(usuarios["usuario"], d)
     svc.enviar_revisao(usuarios["usuario"], d)
@@ -554,13 +556,16 @@ def test_taxa_de_devolucao_conta_as_validacoes(usuarios, nova_demanda):
     assert dv["por_responsavel"][0]["nome"] == usuarios["usuario"].nome  # maior taxa primeiro
 
 
-def test_carga_ponderada_pela_gut(usuarios, nova_demanda):
+def test_carga_ponderada_pela_gut(usuarios, nova_demanda, db):
     from app.services import indicadores_service
 
     nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id, gravidade=5, urgencia=5, tendencia=5)
     nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario2"].id, gravidade=2, urgencia=2, tendencia=2)
     nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario2"].id, gravidade=2, urgencia=2, tendencia=2)
-    nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario2"].id)  # sem GUT
+    sem_gut = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario2"].id)
+    # Demanda antiga, atribuída antes da exigência de priorização
+    sem_gut.gravidade = sem_gut.urgencia = sem_gut.tendencia = sem_gut.prioridade = None
+    db.session.commit()
     nova_demanda(usuarios["gerente"], gravidade=5, urgencia=5, tendencia=5)  # sem responsável
 
     dados = indicadores_service.calcular(usuarios["gerente"])
@@ -593,3 +598,56 @@ def test_minhas_do_gestor_do_plano_mostra_revisao_so_da_sua_divisao(usuarios, no
     assert demandas["DIO"] in svc.quadro(gestor)[Status.EM_REVISAO]
     # Os demais gestores continuam vendo todas
     assert demandas["DIO"] in svc.minhas(usuarios["chefe"])["revisao"]
+
+def test_voltar_para_em_andamento_exige_a_permissao(usuarios, nova_demanda):
+    from app.services import permissoes
+    from app.services.perfis import Perfil
+
+    d = _em_andamento(usuarios, nova_demanda)
+    svc.enviar_revisao(usuarios["usuario"], d)
+    # Desligada por padrão para todos os perfis
+    assert Acao.RETOMAR not in svc.acoes_disponiveis(usuarios["usuario"], d)
+    with pytest.raises(PermissaoNegada):
+        svc.retomar(usuarios["usuario"], d)
+
+    permissoes.configurar({(Perfil.USUARIO, "voltar_andamento"): True})
+    try:
+        assert Acao.RETOMAR in svc.acoes_disponiveis(usuarios["usuario"], d)
+        # Só vale para demandas que o usuário pode ver
+        with pytest.raises(PermissaoNegada):
+            svc.retomar(usuarios["usuario2"], d)
+        svc.retomar(usuarios["usuario"], d, "Esqueci um anexo.")
+    finally:
+        permissoes.configurar({})
+    assert d.status == Status.EM_ANDAMENTO
+    retomada = [h for h in d.historico if h.tipo == TipoEvento.RETOMADA]
+    assert len(retomada) == 1 and "Esqueci um anexo." in retomada[0].descricao
+    # Não pode voltar se não estiver Em validação
+    permissoes.configurar({(Perfil.USUARIO, "voltar_andamento"): True})
+    try:
+        assert Acao.RETOMAR not in svc.acoes_disponiveis(usuarios["usuario"], d)
+    finally:
+        permissoes.configurar({})
+
+def test_so_atribui_demanda_com_prazo_e_prioridade(db, usuarios, nova_demanda):
+    gut = {"gravidade": 3, "urgencia": 3, "tendencia": 3}
+    with pytest.raises(RegraNegocioError, match="prazo"):
+        nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id, termino=None)
+    db.session.rollback()
+    with pytest.raises(RegraNegocioError, match="prioridade"):
+        nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id, gravidade=None, urgencia=None, tendencia=None)
+    db.session.rollback()
+
+    d = nova_demanda(usuarios["chefe"])
+    assert svc.pendencias_para_atribuir(d) == ["preencha o prazo (data de término)", "defina a prioridade (pesos GUT)"]
+    with pytest.raises(RegraNegocioError):
+        svc.atribuir(usuarios["chefe"], d, usuarios["usuario"].id)
+    db.session.rollback()
+    svc.definir_gut(usuarios["chefe"], d, **gut)
+    with pytest.raises(RegraNegocioError, match="prazo"):
+        svc.atribuir(usuarios["chefe"], d, usuarios["usuario"].id)
+    db.session.rollback()
+    d.termino = date.today()
+    db.session.commit()
+    svc.atribuir(usuarios["chefe"], d, usuarios["usuario"].id)
+    assert d.status == Status.AGUARDANDO_ACEITE

@@ -35,6 +35,7 @@ _ETAPA_DO_EVENTO = {
     TipoEvento.RECUSA: Status.RECUSADA,
     TipoEvento.ENVIO_REVISAO: Status.EM_REVISAO,
     TipoEvento.DEVOLUCAO: Status.EM_ANDAMENTO,
+    TipoEvento.RETOMADA: Status.EM_ANDAMENTO,
     TipoEvento.APROVACAO: Status.CONCLUIDA,
     TipoEvento.CANCELAMENTO: Status.CANCELADA,
 }
