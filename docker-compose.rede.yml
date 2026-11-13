@@ -1,0 +1,10 @@
+# Para rodar com o projeto em pasta de rede (ex.: drive Y:), onde o Docker Desktop
+# não consegue montar o código como volume. Usa o código copiado na imagem:
+# após alterar o código, rode o comando novamente (com --build). Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.rede.yml up -d --build
+services:
+  app:
+    environment:
+      APP_CONFIG: development
+    ports:
+      - "${APP_PORT:-8000}:8000"

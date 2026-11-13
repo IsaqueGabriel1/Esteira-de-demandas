@@ -345,3 +345,31 @@ def test_quadro_e_lista_filtram_pela_divisao_do_responsavel(client, login, usuar
         resposta = client.get(f"{url}?divisao=GGO")
         assert b'name="divisao"' in resposta.data
         assert "Tarefa da GGO".encode() in resposta.data and "Tarefa da SR".encode() not in resposta.data
+
+def test_usuario_comum_nao_ve_contagem_de_tempo(client, login, usuarios, nova_demanda):
+    from app.services import demanda_service
+
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
+    demanda_service.aceitar(usuarios["usuario"], d)
+    demanda_service.iniciar(usuarios["usuario"], d)
+    login(usuarios["usuario"])
+    assert "nesta etapa" not in client.get("/quadro").get_data(as_text=True)
+    assert "Em execução há" not in client.get(f"/demandas/{d.id}").get_data(as_text=True)
+    assert ">Execução</th>" not in client.get("/demandas").get_data(as_text=True)
+    client.post("/logout")
+
+    login(usuarios["gerente"])
+    assert "nesta etapa" in client.get("/quadro").get_data(as_text=True)
+    assert "Em execução há" in client.get(f"/demandas/{d.id}").get_data(as_text=True)
+    lista = client.get("/demandas").get_data(as_text=True)
+    assert ">Execução</th>" in lista and "(em curso)" in lista
+
+
+def test_comentario_pela_tela(client, login, usuarios, nova_demanda):
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
+    login(usuarios["usuario"])
+    resposta = client.post(f"/demandas/{d.id}/comentarios", data={"texto": "Dúvida <b>sobre</b> o prazo."})
+    assert resposta.status_code == 302
+    html = client.get(f"/demandas/{d.id}").get_data(as_text=True)
+    assert "Dúvida &lt;b&gt;sobre&lt;/b&gt; o prazo." in html
+    assert "bi-chat-left-text\"></i> 1" in client.get("/quadro").get_data(as_text=True)

@@ -249,6 +249,45 @@ def definir_pasta_rede(demanda_id):
     return redirect(url_for("demandas.detalhe", demanda_id=demanda.id))
 
 
+@bp.route("/demandas/<int:demanda_id>/comentarios", methods=["POST"])
+@login_required
+def comentar(demanda_id):
+    demanda = _obter_ou_404(demanda_id)
+    try:
+        demanda_service.comentar(current_user, demanda, request.form.get("texto"))
+        flash("Comentário adicionado.", "success")
+    except RegraNegocioError as erro:
+        db.session.rollback()
+        flash(erro.mensagem, "danger")
+    return redirect(url_for("demandas.detalhe", demanda_id=demanda.id, _anchor="comentarios"))
+
+
+@bp.route("/demandas/<int:demanda_id>/comentarios/<int:comentario_id>/editar", methods=["POST"])
+@login_required
+def editar_comentario(demanda_id, comentario_id):
+    demanda = _obter_ou_404(demanda_id)
+    try:
+        alterou = demanda_service.editar_comentario(current_user, demanda, comentario_id, request.form.get("texto"))
+        flash("Comentário atualizado." if alterou else "O comentário não mudou.", "success")
+    except RegraNegocioError as erro:
+        db.session.rollback()
+        flash(erro.mensagem, "danger")
+    return redirect(url_for("demandas.detalhe", demanda_id=demanda.id, _anchor="comentarios"))
+
+
+@bp.route("/demandas/<int:demanda_id>/comentarios/<int:comentario_id>/remover", methods=["POST"])
+@login_required
+def remover_comentario(demanda_id, comentario_id):
+    demanda = _obter_ou_404(demanda_id)
+    try:
+        demanda_service.remover_comentario(current_user, demanda, comentario_id)
+        flash("Comentário removido.", "success")
+    except RegraNegocioError as erro:
+        db.session.rollback()
+        flash(erro.mensagem, "danger")
+    return redirect(url_for("demandas.detalhe", demanda_id=demanda.id, _anchor="comentarios"))
+
+
 @bp.route("/demandas/<int:demanda_id>/prazo-acordado", methods=["POST"])
 @login_required
 def definir_prazo_acordado(demanda_id):

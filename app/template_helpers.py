@@ -8,7 +8,7 @@ try:
 except Exception:  # sem base de fusos instalada: Brasília não tem horário de verão desde 2019
     FUSO_LOCAL = timezone(timedelta(hours=-3))
 
-from .services import gut, permissoes
+from .services import gut, permissoes, tempos
 from .services.fluxo import Acao, Status
 from .services.perfis import Perfil
 
@@ -29,6 +29,8 @@ def _data_hora_br(valor):
 
 
 def registrar_helpers(app):
+    from flask_login import current_user
+
     from .services.usuario_service import eh_administrador
 
     app.add_template_filter(_data_br, "data_br")
@@ -43,6 +45,8 @@ def registrar_helpers(app):
         eh_administrador=eh_administrador,
         FAIXAS_GUT=gut.FAIXAS,
         ROTULOS_PESO=gut.ROTULOS_PESO,
+        tempos=tempos,
+        current_user=current_user,
     )
 
     @app.context_processor

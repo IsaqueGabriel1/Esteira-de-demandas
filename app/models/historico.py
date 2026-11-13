@@ -16,6 +16,7 @@ class TipoEvento:
     DEVOLUCAO = "DEVOLUCAO"
     RETOMADA = "RETOMADA"
     CANCELAMENTO = "CANCELAMENTO"
+    COMENTARIO = "COMENTARIO"
 
     ROTULOS = {
         CRIACAO: "Criação",
@@ -31,6 +32,7 @@ class TipoEvento:
         DEVOLUCAO: "Devolução",
         RETOMADA: "Voltou para Em andamento",
         CANCELAMENTO: "Cancelamento",
+        COMENTARIO: "Comentário",
     }
     ICONES = {
         CRIACAO: "bi-plus-circle",
@@ -46,6 +48,7 @@ class TipoEvento:
         DEVOLUCAO: "bi-arrow-counterclockwise",
         RETOMADA: "bi-arrow-left-circle",
         CANCELAMENTO: "bi-slash-circle",
+        COMENTARIO: "bi-chat-left-text",
     }
 
 

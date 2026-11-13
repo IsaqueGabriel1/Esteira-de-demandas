@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, or_
 
 from ..extensions import db
-from ..models import Demanda, Eixo, HistoricoDemanda, TipoEvento, Usuario, demanda_apoio
+from ..models import ComentarioDemanda, Demanda, Eixo, HistoricoDemanda, TipoEvento, Usuario, demanda_apoio
 from ..models.base import agora
 from . import divisao_service, gut, permissoes
 from .erros import PermissaoNegada, RegraNegocioError
@@ -19,6 +19,7 @@ from .fluxo import Acao, Status, acao_por_arraste, proximo_status, transicao_per
 
 TAMANHO_MINIMO_JUSTIFICATIVA = 10
 TAMANHO_MAXIMO_PASTA_REDE = 500
+TAMANHO_MAXIMO_COMENTARIO = 4000
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +169,66 @@ def definir_pasta_rede(usuario, demanda, pasta_rede):
     _registrar(demanda, usuario, TipoEvento.EDICAO, "Alterado: pasta da rede.")
     db.session.commit()
     return True
+
+
+# ---------------------------------------------------------------------------
+# Comentários
+# ---------------------------------------------------------------------------
+
+def pode_gerenciar_comentario(usuario, comentario):
+    """O autor edita e remove o próprio comentário; o gestor também pode remover."""
+    return comentario.usuario_id == usuario.id
+
+
+def pode_remover_comentario(usuario, comentario):
+    return pode_gerenciar_comentario(usuario, comentario) or permissoes.eh_gestor(usuario.perfil)
+
+
+def _texto_comentario(valor):
+    texto = _texto_obrigatorio(valor, "comentário")
+    if len(texto) > TAMANHO_MAXIMO_COMENTARIO:
+        raise RegraNegocioError(f"O comentário deve ter no máximo {TAMANHO_MAXIMO_COMENTARIO} caracteres.")
+    return texto
+
+
+def _buscar_comentario(demanda, comentario_id):
+    comentario = db.session.get(ComentarioDemanda, comentario_id)
+    if comentario is None or comentario.demanda_id != demanda.id or comentario.removido_em:
+        raise RegraNegocioError("Comentário não encontrado.")
+    return comentario
+
+
+def comentar(usuario, demanda, texto):
+    """Qualquer pessoa que vê a demanda pode comentar, inclusive nas finalizadas."""
+    if not pode_ver(usuario, demanda):
+        raise PermissaoNegada("Você não tem acesso a esta demanda.")
+    comentario = ComentarioDemanda(demanda=demanda, usuario_id=usuario.id, texto=_texto_comentario(texto))
+    db.session.add(comentario)
+    _registrar(demanda, usuario, TipoEvento.COMENTARIO, "Adicionou um comentário.")
+    db.session.commit()
+    return comentario
+
+
+def editar_comentario(usuario, demanda, comentario_id, texto):
+    comentario = _buscar_comentario(demanda, comentario_id)
+    if not pode_gerenciar_comentario(usuario, comentario):
+        raise PermissaoNegada("Somente o autor pode editar o comentário.")
+    texto = _texto_comentario(texto)
+    if texto == comentario.texto:
+        return False
+    comentario.texto = texto
+    comentario.editado_em = agora()
+    db.session.commit()
+    return True
+
+
+def remover_comentario(usuario, demanda, comentario_id):
+    comentario = _buscar_comentario(demanda, comentario_id)
+    if not pode_remover_comentario(usuario, comentario):
+        raise PermissaoNegada("Somente o autor ou um gestor pode remover o comentário.")
+    comentario.removido_em = agora()
+    _registrar(demanda, usuario, TipoEvento.COMENTARIO, f"Removeu um comentário de {comentario.usuario.nome}.")
+    db.session.commit()
 
 
 # ---------------------------------------------------------------------------

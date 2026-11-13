@@ -67,10 +67,17 @@
 <main class="{% block container_class %}container-fluid px-4{% endblock %} py-4">
   {% with mensagens = get_flashed_messages(with_categories=true) %}
     {% for categoria, mensagem in mensagens %}
+    {# Sucesso some sozinho em 5 s (app.js); erros e avisos ficam até o usuário fechar #}
+    {% if categoria == 'success' %}
+    <div class="alert alert-success fade show" role="alert" data-fechar-auto>
+      {{ mensagem }}
+    </div>
+    {% else %}
     <div class="alert alert-{{ categoria if categoria != 'message' else 'info' }} alert-dismissible fade show" role="alert">
       {{ mensagem }}
       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
     </div>
+    {% endif %}
     {% endfor %}
   {% endwith %}
   {% block conteudo %}{% endblock %}
