@@ -731,3 +731,42 @@ def test_comenta_em_demanda_finalizada(usuarios, nova_demanda):
     svc.cancelar(usuarios["gerente"], d, "Não é mais necessária.")
     svc.comentar(usuarios["gerente"], d, "Registro após o cancelamento.")
     assert len(d.comentarios_ativos) == 1
+
+
+def test_sino_de_comentarios_nao_lidos(usuarios, nova_demanda):
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
+    responsavel = usuarios["usuario"]
+    assert svc.comentarios_nao_lidos(responsavel) == []
+
+    svc.comentar(usuarios["gerente"], d, "Primeiro.")
+    svc.comentar(usuarios["gerente"], d, "Segundo.")
+    svc.comentar(responsavel, d, "O próprio comentário não conta.")
+    assert svc.comentarios_nao_lidos(responsavel) == [(d, 2)]
+    assert svc.comentarios_nao_lidos(usuarios["gerente"]) == []  # não é responsável nem apoio
+
+    svc.marcar_comentarios_lidos(responsavel, d)
+    assert svc.comentarios_nao_lidos(responsavel) == []
+
+    novo = svc.comentar(usuarios["gerente"], d, "Terceiro.")
+    assert svc.comentarios_nao_lidos(responsavel) == [(d, 1)]
+    svc.remover_comentario(usuarios["gerente"], d, novo.id)  # removido deixa de contar
+    assert svc.comentarios_nao_lidos(responsavel) == []
+
+
+def test_sino_de_demandas_proximas_a_vencer(usuarios, nova_demanda):
+    hoje = date.today()
+    responsavel = usuarios["usuario"].id
+    vence_hoje = nova_demanda(usuarios["gerente"], atribuido_id=responsavel, termino=hoje)
+    vence_em_3 = nova_demanda(usuarios["gerente"], atribuido_id=responsavel, termino=hoje + timedelta(days=3))
+    nova_demanda(usuarios["gerente"], atribuido_id=responsavel, termino=hoje + timedelta(days=4))  # longe
+    atrasada = nova_demanda(usuarios["gerente"], atribuido_id=responsavel, termino=hoje + timedelta(days=30))
+    atrasada.termino = hoje - timedelta(days=1)  # já venceu: não é "próxima a vencer"
+    # O prazo acordado prevalece sobre o término
+    acordada = nova_demanda(usuarios["gerente"], atribuido_id=responsavel)
+    svc.definir_prazo_acordado(usuarios["usuario"], acordada, hoje + timedelta(days=1))
+
+    assert svc.proximas_a_vencer(usuarios["usuario"]) == [vence_hoje, acordada, vence_em_3]
+    assert svc.proximas_a_vencer(usuarios["usuario2"]) == []
+
+    svc.cancelar(usuarios["gerente"], vence_hoje, "Não é mais necessária.")
+    assert vence_hoje not in svc.proximas_a_vencer(usuarios["usuario"])

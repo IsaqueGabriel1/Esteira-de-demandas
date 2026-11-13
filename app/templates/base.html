@@ -42,6 +42,46 @@
       {% if permissoes.pode_criar_demanda(current_user.perfil) %}
       <a href="{{ url_for('demandas.nova') }}" class="btn btn-light btn-sm me-3"><i class="bi bi-plus-lg"></i> Nova demanda</a>
       {% endif %}
+      {% set total_nao_lidos = comentarios_nao_lidos|sum(attribute=1) %}
+      {% set total_avisos = total_nao_lidos + proximas_a_vencer|length %}
+      <div class="dropdown me-3">
+        <a class="nav-link text-white position-relative px-2" href="#" data-bs-toggle="dropdown" title="{{ total_avisos ~ ' notificação(ões)' if total_avisos else 'Nenhuma notificação' }}" aria-label="Notificações">
+          <i class="bi {{ 'bi-bell-fill' if total_avisos else 'bi-bell' }} fs-5"></i>
+          {% if total_avisos %}<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">{{ total_avisos if total_avisos < 100 else '99+' }}</span>{% endif %}
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end notificacoes">
+          <li><h6 class="dropdown-header">Vencem em breve</h6></li>
+          {% for demanda in proximas_a_vencer %}
+          {% set dias = (demanda.prazo_final - hoje).days %}
+          <li>
+            <a class="dropdown-item" href="{{ url_for('demandas.detalhe', demanda_id=demanda.id) }}">
+              <div class="d-flex justify-content-between gap-2">
+                <span class="small text-muted">#{{ demanda.id }}</span>
+                <span class="badge {{ 'bg-danger' if dias == 0 else 'bg-warning-subtle text-warning-emphasis' }}">{{ 'Vence hoje' if dias == 0 else 'Vence amanhã' if dias == 1 else 'Vence em ' ~ dias ~ ' dias' }}</span>
+              </div>
+              <div class="small text-truncate">{{ demanda.acao }}</div>
+            </a>
+          </li>
+          {% else %}
+          <li><span class="dropdown-item-text small text-muted">Nenhuma demanda vencendo nos próximos dias.</span></li>
+          {% endfor %}
+          <li><hr class="dropdown-divider"></li>
+          <li><h6 class="dropdown-header">Comentários novos</h6></li>
+          {% for demanda, quantidade in comentarios_nao_lidos %}
+          <li>
+            <a class="dropdown-item" href="{{ url_for('demandas.detalhe', demanda_id=demanda.id, _anchor='comentarios') }}">
+              <div class="d-flex justify-content-between gap-2">
+                <span class="small text-muted">#{{ demanda.id }}</span>
+                <span class="badge bg-danger-subtle text-danger">{{ quantidade }} novo{{ 's' if quantidade > 1 }}</span>
+              </div>
+              <div class="small text-truncate">{{ demanda.acao }}</div>
+            </a>
+          </li>
+          {% else %}
+          <li><span class="dropdown-item-text small text-muted">Nenhum comentário novo nas suas demandas.</span></li>
+          {% endfor %}
+        </ul>
+      </div>
       <div class="dropdown">
         <a class="nav-link dropdown-toggle text-white d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
           <span class="avatar avatar-claro">{{ current_user.iniciais }}</span>

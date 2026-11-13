@@ -50,5 +50,16 @@ def registrar_helpers(app):
     )
 
     @app.context_processor
+    def notificacoes():
+        from .services import demanda_service
+
+        if not current_user.is_authenticated:
+            return {}
+        return {
+            "comentarios_nao_lidos": demanda_service.comentarios_nao_lidos(current_user),
+            "proximas_a_vencer": demanda_service.proximas_a_vencer(current_user),
+        }
+
+    @app.context_processor
     def data_de_hoje():
         return {"hoje": date.today()}

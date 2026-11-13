@@ -373,3 +373,15 @@ def test_comentario_pela_tela(client, login, usuarios, nova_demanda):
     html = client.get(f"/demandas/{d.id}").get_data(as_text=True)
     assert "Dúvida &lt;b&gt;sobre&lt;/b&gt; o prazo." in html
     assert "bi-chat-left-text\"></i> 1" in client.get("/quadro").get_data(as_text=True)
+
+
+def test_sino_marca_como_lido_ao_abrir_a_demanda(client, login, usuarios, nova_demanda):
+    from app.services import demanda_service
+
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
+    demanda_service.comentar(usuarios["gerente"], d, "Pode priorizar?")
+    login(usuarios["usuario"])
+    assert "bi-bell-fill" in client.get("/quadro").get_data(as_text=True)
+    client.get(f"/demandas/{d.id}")
+    html = client.get("/quadro").get_data(as_text=True)
+    assert "bi-bell-fill" not in html and "Nenhum comentário novo" in html

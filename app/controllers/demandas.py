@@ -135,6 +135,7 @@ def nova():
 @login_required
 def detalhe(demanda_id):
     demanda = _obter_ou_404(demanda_id)
+    demanda_service.marcar_comentarios_lidos(current_user, demanda)
     return render_template(
         "demandas/detalhe.html",
         demanda=demanda,
