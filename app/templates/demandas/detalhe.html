@@ -2,7 +2,7 @@
 {% from "partials/_macros.html" import badge_prioridade, badge_status, badge_eixo, badge_divisao, prazo, avatar %}
 {% block titulo %}Demanda #{{ demanda.id }}{% endblock %}
 {% block conteudo %}
-<nav class="small mb-2"><a href="{{ url_for('demandas.quadro') }}" class="text-decoration-none"><i class="bi bi-arrow-left"></i> Voltar ao quadro</a></nav>
+<nav class="mb-3"><a href="{{ url_for('demandas.quadro') }}" class="btn btn-outline-primary"><i class="bi bi-arrow-left"></i> Voltar ao quadro</a></nav>
 
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
   <div>

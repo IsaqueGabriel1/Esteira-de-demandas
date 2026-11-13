@@ -26,6 +26,12 @@
     t.show();
   };
 
+  // Mensagens de sucesso (flash) desaparecem após 5 segundos
+  $('[data-fechar-auto]').each(function () {
+    var alerta = this;
+    setTimeout(function () { bootstrap.Alert.getOrCreateInstance(alerta).close(); }, 5000);
+  });
+
   // Botões "Copiar" (data-copiar="texto"). Em HTTP sem TLS a API de área de
   // transferência não existe, então usa o método antigo como alternativa.
   $(document).on('click', '[data-copiar]', function () {
