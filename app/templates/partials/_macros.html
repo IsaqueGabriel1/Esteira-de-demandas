@@ -55,6 +55,19 @@
     {% if demanda.status == Status.RECUSADA and demanda.justificativa_recusa %}
     <div class="small text-danger mt-1"><i class="bi bi-x-circle"></i> {{ demanda.recusado_por.nome if demanda.recusado_por }}: “{{ demanda.justificativa_recusa|truncate(80) }}”</div>
     {% endif %}
+    {# Contagem de tempo: não é exibida ao Usuário Comum #}
+    {% set na_etapa = tempos.tempo_na_etapa_atual(demanda) if demanda.status != Status.CONCLUIDA and current_user.perfil != Perfil.USUARIO else none %}
+    {% if na_etapa is not none %}
+    {% set parada = tempos.dias(na_etapa) >= tempos.DIAS_ALERTA_ETAPA %}
+    <div class="small mt-1 {{ 'text-danger fw-semibold' if parada else 'text-muted' }}" title="Tempo no status atual{{ ' — parada há ' ~ tempos.DIAS_ALERTA_ETAPA ~ ' dias ou mais' if parada }}">
+      <i class="bi bi-hourglass-split"></i> {{ tempos.formatar(na_etapa) }} nesta etapa
+      {% if demanda.status in (Status.EM_ANDAMENTO, Status.EM_REVISAO) %}
+      {% set execucao = tempos.tempo_de_execucao(demanda) %}
+      {# Só quando difere do tempo na etapa: já passou por validação ou devolução #}
+      {% if execucao is not none and tempos.dias(execucao - na_etapa) >= 0.04 %}<span class="text-muted fw-normal">· {{ tempos.formatar(execucao) }} desde o início</span>{% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
     <div class="d-flex justify-content-between align-items-center mt-2 small">
       {{ prazo(demanda) }}
       <div class="d-flex align-items-center">

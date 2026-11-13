@@ -157,6 +157,31 @@
       </div>
     </div>
 
+    {% set rt = tempos.resumo(demanda) %}
+    {% if (rt.etapas or rt.execucao) and current_user.perfil != Perfil.USUARIO %}
+    <div class="card mb-3">
+      <div class="card-header bg-white"><i class="bi bi-hourglass-split"></i> Tempo</div>
+      <div class="card-body">
+        {% if rt.execucao %}
+        <div class="small text-muted">{{ 'Tempo de execução' if demanda.finalizada else 'Em execução há' }}</div>
+        <div class="fs-5 fw-semibold">{{ rt.execucao }}</div>
+        <div class="small text-muted mb-2">Desde que entrou em Em andamento ({{ rt.inicio_execucao|data_hora_br }}){{ ', até a conclusão' if demanda.finalizada }}. Inclui validação e devoluções.</div>
+        {% endif %}
+        {% if rt.etapas %}
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Etapa</th><th class="text-end">Tempo</th></tr></thead>
+          <tbody>
+            {% for e in rt.etapas %}
+            <tr class="{{ 'fw-semibold' if e.atual }}"><td>{{ e.rotulo }}{% if e.atual %} <span class="badge bg-light text-dark">atual</span>{% endif %}</td><td class="text-end">{{ e.texto }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="form-text">Soma de todas as passagens por cada etapa. A etapa atual conta até agora.</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     <div class="card">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <span><i class="bi bi-bar-chart"></i> Matriz GUT</span>{{ badge_prioridade(demanda) }}

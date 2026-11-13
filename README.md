@@ -31,6 +31,16 @@ Na inicialização o container executa automaticamente:
 
 Em desenvolvimento o código é montado como volume: ao salvar um arquivo no VS Code, o Flask recarrega sozinho.
 
+### Projeto em pasta de rede (ex.: drive `Y:`)
+
+O Docker Desktop não monta pastas de rede como volume (o container falha com `cannot open /app/docker/entrypoint.sh`). Nesse caso, suba usando o código copiado na imagem:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.rede.yml up -d --build
+```
+
+Não há recarga automática: após alterar o código, rode o mesmo comando de novo. Os dados do banco ficam no volume `pgdata` e são preservados (só `docker compose down -v` os apaga).
+
 ## 2. Comandos do dia a dia
 
 | O que fazer | Comando |

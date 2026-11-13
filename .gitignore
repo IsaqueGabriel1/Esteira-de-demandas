@@ -9,4 +9,5 @@ venv/
 htmlcov/
 backups/
 .vscode/*
+*.sql
 !.vscode/settings.json

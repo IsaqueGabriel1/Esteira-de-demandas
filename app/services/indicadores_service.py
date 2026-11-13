@@ -5,7 +5,7 @@ from statistics import median
 
 from ..models import TipoEvento
 from ..models.base import agora
-from . import demanda_service
+from . import demanda_service, tempos
 from .fluxo import Status
 
 try:
@@ -24,67 +24,13 @@ PERIODOS = {
 }
 PERIODO_PADRAO = "90"
 
-# Etapas em que a demanda espera ou é trabalhada, na ordem do fluxo
-ETAPAS_MEDIDAS = (Status.AGUARDANDO_ACEITE, Status.NAO_INICIADA, Status.EM_ANDAMENTO, Status.EM_REVISAO)
-
-# Evento do histórico -> etapa em que a demanda entra (a atribuição é tratada à parte)
-_ETAPA_DO_EVENTO = {
-    TipoEvento.CRIACAO: Status.NOVA,
-    TipoEvento.ACEITE: Status.NAO_INICIADA,
-    TipoEvento.INICIO: Status.EM_ANDAMENTO,
-    TipoEvento.RECUSA: Status.RECUSADA,
-    TipoEvento.ENVIO_REVISAO: Status.EM_REVISAO,
-    TipoEvento.DEVOLUCAO: Status.EM_ANDAMENTO,
-    TipoEvento.RETOMADA: Status.EM_ANDAMENTO,
-    TipoEvento.APROVACAO: Status.CONCLUIDA,
-    TipoEvento.CANCELAMENTO: Status.CANCELADA,
-}
+ETAPAS_MEDIDAS = tempos.ETAPAS_MEDIDAS
+formatar_dias = tempos.formatar_dias
 
 
 def _data_local(momento):
     """Datas/horas são gravadas em UTC; o prazo é uma data no horário de Brasília."""
     return momento.replace(tzinfo=timezone.utc).astimezone(FUSO_LOCAL).date()
-
-
-def _linha_do_tempo(demanda):
-    """[(etapa, momento em que entrou nela)], reconstruída a partir do histórico."""
-    marcos = []
-    for evento in sorted(demanda.historico, key=lambda h: (h.criado_em, h.id)):
-        if evento.tipo == TipoEvento.ATRIBUICAO:
-            auto = (evento.dados or {}).get("para") == evento.usuario_id
-            etapa = Status.NAO_INICIADA if auto else Status.AGUARDANDO_ACEITE
-        elif evento.tipo in _ETAPA_DO_EVENTO:
-            etapa = _ETAPA_DO_EVENTO[evento.tipo]
-        else:
-            continue
-        marcos.append((etapa, evento.criado_em))
-
-    # Fluxo antigo (antes de "Não iniciada"): o aceite já levava direto a "Em andamento"
-    for i, (etapa, momento) in enumerate(marcos[:-1]):
-        if etapa == Status.NAO_INICIADA and marcos[i + 1][0] == Status.EM_REVISAO:
-            marcos[i] = (Status.EM_ANDAMENTO, momento)
-    return marcos
-
-
-def _tempo_por_etapa(demanda):
-    """{etapa: timedelta} somando todas as passagens da demanda por cada etapa."""
-    tempos = defaultdict(timedelta)
-    marcos = _linha_do_tempo(demanda)
-    for (etapa, entrada), (_proxima, saida) in zip(marcos, marcos[1:]):
-        tempos[etapa] += saida - entrada
-    return tempos
-
-
-def _dias(duracao):
-    return duracao.total_seconds() / 86400
-
-
-def formatar_dias(dias):
-    if dias is None:
-        return "—"
-    if dias < 1:
-        return f"{round(dias * 24)} h"
-    return f"{dias:.1f}".replace(".", ",") + (" dia" if round(dias, 1) == 1 else " dias")
 
 
 def _concluidas_entre(demandas, inicio, fim):
@@ -154,6 +100,8 @@ def _carga(ativas):
 
 
 def _desempenho(demandas, periodo):
+    """Prazo, devolução e ciclo: demandas concluídas no período.
+    Tempo em cada etapa: concluídas no período e demandas em aberto (a etapa atual conta até agora)."""
     rotulo, dias = PERIODOS[periodo]
     fim = agora()
     inicio = fim - timedelta(days=dias) if dias else None
@@ -173,16 +121,24 @@ def _desempenho(demandas, periodo):
         if prazo["percentual"] is not None and anterior["percentual"] is not None:
             prazo["variacao"] = prazo["percentual"] - anterior["percentual"]
 
+    em_aberto = [d for d in demandas if not d.finalizada]
     por_etapa = defaultdict(list)
-    ciclos = []
-    for d in concluidas:
-        tempos = _tempo_por_etapa(d)
+    for d in concluidas + em_aberto:
+        duracoes = tempos.tempo_por_etapa(d, ate=fim)
         for etapa in ETAPAS_MEDIDAS:
-            if etapa in tempos:
-                por_etapa[etapa].append(_dias(tempos[etapa]))
-        marcos = _linha_do_tempo(d)
+            if etapa in duracoes:
+                por_etapa[etapa].append(tempos.dias(duracoes[etapa]))
+
+    ciclos, execucoes = [], []
+    for d in concluidas:
+        marcos = tempos.linha_do_tempo(d)
         if marcos:
-            ciclos.append(_dias(marcos[-1][1] - marcos[0][1]))
+            ciclos.append(tempos.dias(marcos[-1][1] - marcos[0][1]))
+        execucao = tempos.tempo_de_execucao(d)
+        if execucao is not None:
+            execucoes.append(tempos.dias(execucao))
+    em_execucao = [tempos.tempo_de_execucao(d) for d in em_aberto]
+    em_execucao = [tempos.dias(t) for t in em_execucao if t is not None]
 
     total_etapas = sum(sum(v) for v in por_etapa.values())
     etapas = []
@@ -207,6 +163,10 @@ def _desempenho(demandas, periodo):
         "prazo": prazo,
         "devolucoes": devolucoes,
         "ciclo_texto": formatar_dias(ciclo),
+        "execucao_texto": formatar_dias(median(execucoes) if execucoes else None),
+        "em_execucao": len(em_execucao),
+        "em_execucao_texto": formatar_dias(median(em_execucao) if em_execucao else None),
+        "medidas_etapas": len(concluidas) + len(em_aberto),
         "etapas": etapas,
         "gargalo": gargalo,
     }

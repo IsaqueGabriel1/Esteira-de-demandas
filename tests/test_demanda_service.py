@@ -513,24 +513,24 @@ def test_indicadores_de_prazo_e_tempo_por_etapa(usuarios, nova_demanda, db):
 
 
 def test_fluxo_antigo_sem_inicio_conta_como_em_andamento(usuarios, nova_demanda, db):
-    from app.services import indicadores_service
+    from app.services import tempos
 
     d = _ciclo_completo(usuarios, nova_demanda, db, (1, 3, 0, 1), termino=None)
     inicio = next(h for h in d.historico if h.tipo == TipoEvento.INICIO)
     db.session.delete(inicio)  # demanda concluída antes de existir "Não iniciada"
     db.session.commit()
-    tempos = indicadores_service._tempo_por_etapa(d)
-    assert Status.NAO_INICIADA not in tempos
-    assert round(indicadores_service._dias(tempos[Status.EM_ANDAMENTO])) == 3
+    duracoes = tempos.tempo_por_etapa(d)
+    assert Status.NAO_INICIADA not in duracoes
+    assert round(tempos.dias(duracoes[Status.EM_ANDAMENTO])) == 3
 
 
 def test_formatar_dias():
     from app.services.indicadores_service import formatar_dias
 
     assert formatar_dias(None) == "—"
-    assert formatar_dias(0.25) == "6 h"
-    assert formatar_dias(1) == "1,0 dia"
-    assert formatar_dias(3.46) == "3,5 dias"
+    assert formatar_dias(0.25) == "menos de 1 dia"
+    assert formatar_dias(1) == "1 dia"
+    assert formatar_dias(3.96) == "3 dias"
 
 
 def test_taxa_de_devolucao_conta_as_validacoes(usuarios, nova_demanda):
@@ -651,3 +651,43 @@ def test_so_atribui_demanda_com_prazo_e_prioridade(db, usuarios, nova_demanda):
     db.session.commit()
     svc.atribuir(usuarios["chefe"], d, usuarios["usuario"].id)
     assert d.status == Status.AGUARDANDO_ACEITE
+
+def test_contagem_de_tempo_da_demanda(usuarios, nova_demanda, db):
+    from app.models.base import agora
+    from app.services import tempos
+
+    d = nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id)
+    assert tempos.inicio_da_execucao(d) is None and tempos.tempo_de_execucao(d) is None
+    svc.aceitar(usuarios["usuario"], d)
+    svc.iniciar(usuarios["usuario"], d)
+    svc.enviar_revisao(usuarios["usuario"], d)
+    # Reescreve as datas: iniciada há 10 dias, enviada para validação há 4
+    agora_ = agora()
+    for h in d.historico:
+        h.criado_em = {
+            TipoEvento.INICIO: agora_ - timedelta(days=10),
+            TipoEvento.ENVIO_REVISAO: agora_ - timedelta(days=4),
+        }.get(h.tipo, agora_ - timedelta(days=12))
+    db.session.commit()
+
+    assert round(tempos.dias(tempos.tempo_na_etapa_atual(d))) == 4
+    assert round(tempos.dias(tempos.tempo_de_execucao(d))) == 10
+    resumo = tempos.resumo(d)
+    linhas = {e["rotulo"]: e for e in resumo["etapas"]}
+    assert linhas["Em andamento"]["texto"] == "6 dias"
+    assert linhas["Em validação"]["atual"] and linhas["Em validação"]["texto"] == "4 dias"
+    assert resumo["execucao"] == "10 dias"
+
+    svc.aprovar(usuarios["chefe"], d)
+    assert tempos.tempo_na_etapa_atual(d) is None
+    assert round(tempos.dias(tempos.tempo_de_execucao(d))) == 10  # para de contar na conclusão
+
+def test_demanda_antiga_em_andamento_sem_inicio_conta_execucao(usuarios, nova_demanda, db):
+    from app.services import tempos
+
+    d = nova_demanda(usuarios["chefe"], atribuido_id=usuarios["usuario"].id)
+    svc.aceitar(usuarios["usuario"], d)
+    d.status = Status.EM_ANDAMENTO  # aceita no fluxo antigo, sem o evento "Início"
+    db.session.commit()
+    assert tempos.inicio_da_execucao(d) is not None
+    assert tempos.resumo(d)["etapas"][-1]["rotulo"] == "Em andamento"

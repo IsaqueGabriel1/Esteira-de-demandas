@@ -13,6 +13,8 @@
 {% set mostrar_status = true %}
 {% include "partials/_filtros.html" %}
 
+{# Contagem de tempo: não é exibida ao Usuário Comum #}
+{% set ver_tempo = current_user.perfil != Perfil.USUARIO %}
 <div class="card">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0 tabela-demandas">
@@ -20,6 +22,7 @@
         <tr>
           <th>#</th><th>Eixo</th><th>Ação</th><th>Produto / Entrega</th><th>Status</th>
           <th>Responsável</th><th>Prazo</th><th class="text-center">G·U·T</th><th>Prioridade</th>
+          {% if ver_tempo %}<th class="text-nowrap" title="Tempo desde que a demanda entrou em Em andamento até a conclusão (ou até hoje, se ainda em aberto)">Execução</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -34,9 +37,15 @@
           <td class="text-nowrap small">{{ prazo(d) }}</td>
           <td class="text-center text-muted small text-nowrap">{% if d.tem_gut %}{{ d.gravidade }}·{{ d.urgencia }}·{{ d.tendencia }}{% else %}—{% endif %}</td>
           <td>{{ badge_prioridade(d) }}</td>
+          {% if ver_tempo %}
+          {% set execucao = tempos.tempo_de_execucao(d) %}
+          <td class="text-nowrap small {{ 'text-muted' if execucao is none }}">
+            {% if execucao is none %}—{% else %}{{ tempos.formatar(execucao) }}{% if not d.finalizada %} <span class="text-muted">(em curso)</span>{% endif %}{% endif %}
+          </td>
+          {% endif %}
         </tr>
         {% else %}
-        <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma demanda encontrada.</td></tr>
+        <tr><td colspan="{{ 10 if ver_tempo else 9 }}" class="text-center text-muted py-4">Nenhuma demanda encontrada.</td></tr>
         {% endfor %}
       </tbody>
     </table>

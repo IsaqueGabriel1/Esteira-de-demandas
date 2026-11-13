@@ -97,6 +97,13 @@
         <div class="small text-muted">Tempo total até a conclusão (mediana) {{ info('Tempo típico entre a criação da demanda e a aprovação da entrega, nas concluídas no período. A mediana é o valor do meio e não é distorcida por poucos casos muito longos.') }}</div>
         <div class="fs-2 fw-semibold">{{ dp.ciclo_texto }}</div>
         <div class="small text-muted">Da criação da demanda até a aprovação da entrega</div>
+        <div class="small mt-2">
+          <i class="bi bi-play-circle"></i> Execução: <strong>{{ dp.execucao_texto }}</strong>
+          {{ info('Tempo típico desde que a demanda entrou em Em andamento até a aprovação, nas concluídas no período. Inclui a validação e eventuais devoluções.') }}
+        </div>
+        {% if dp.em_execucao %}
+        <div class="small text-muted">{{ dp.em_execucao }} em execução agora, há {{ dp.em_execucao_texto }} (mediana)</div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -113,11 +120,11 @@
 
 <div class="card mb-4">
   <div class="card-header bg-white d-flex flex-wrap justify-content-between gap-2">
-    <span><i class="bi bi-hourglass-split"></i> Tempo em cada etapa (mediana por demanda) {{ info('Quanto tempo as demandas concluídas no período ficaram em cada etapa. A etapa com a maior parcela do tempo é o principal gargalo do fluxo.') }}</span>
+    <span><i class="bi bi-hourglass-split"></i> Tempo em cada etapa (mediana por demanda) {{ info('Quanto tempo as demandas ficaram em cada etapa: as concluídas no período e as que estão em aberto (para estas, a etapa atual conta até agora). A etapa com a maior parcela do tempo é o principal gargalo do fluxo.') }}</span>
     {% if dp.gargalo %}<span class="small text-danger"><i class="bi bi-exclamation-triangle"></i> Maior parte do tempo: <strong>{{ dp.gargalo }}</strong></span>{% endif %}
   </div>
   <div class="card-body">
-    {% if dp.concluidas %}
+    {% if dp.medidas_etapas %}
     <div class="row g-3 align-items-center">
       <div class="col-lg-7"><canvas id="g-etapas" height="200"></canvas></div>
       <div class="col-lg-5">
@@ -134,11 +141,11 @@
             {% endfor %}
           </tbody>
         </table>
-        <p class="small text-muted mt-2 mb-0">"% do tempo" é a parcela de todo o tempo gasto pelas demandas concluídas que ficou em cada etapa. Uma demanda devolvida soma todas as passagens pela etapa.</p>
+        <p class="small text-muted mt-2 mb-0">"% do tempo" é a parcela de todo o tempo gasto pelas demandas concluídas no período e em aberto que ficou em cada etapa. Uma demanda devolvida soma todas as passagens pela etapa.</p>
       </div>
     </div>
     {% else %}
-    <p class="text-muted small mb-0">Nenhuma demanda concluída no período.</p>
+    <p class="text-muted small mb-0">Nenhuma demanda para medir.</p>
     {% endif %}
   </div>
 </div>
