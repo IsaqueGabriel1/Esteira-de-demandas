@@ -64,6 +64,16 @@ class Demanda(db.Model):
         cascade="all, delete-orphan",
         order_by="HistoricoDemanda.id.desc()",
     )
+    comentarios = db.relationship(
+        "ComentarioDemanda",
+        back_populates="demanda",
+        cascade="all, delete-orphan",
+        order_by="ComentarioDemanda.id",
+    )
+
+    @property
+    def comentarios_ativos(self):
+        return [c for c in self.comentarios if c.removido_em is None]
 
     @property
     def status_rotulo(self):

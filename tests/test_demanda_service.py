@@ -691,3 +691,43 @@ def test_demanda_antiga_em_andamento_sem_inicio_conta_execucao(usuarios, nova_de
     db.session.commit()
     assert tempos.inicio_da_execucao(d) is not None
     assert tempos.resumo(d)["etapas"][-1]["rotulo"] == "Em andamento"
+
+
+# ---------------- Comentários ----------------
+
+def test_comentarios_na_demanda(usuarios, nova_demanda):
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
+
+    c = svc.comentar(usuarios["usuario"], d, "  Aguardando retorno da DPO.  ")
+    assert c.texto == "Aguardando retorno da DPO."
+    assert d.historico[0].tipo == TipoEvento.COMENTARIO
+    svc.comentar(usuarios["gerente"], d, "Ok, obrigado.")
+    assert [x.texto for x in d.comentarios_ativos] == ["Aguardando retorno da DPO.", "Ok, obrigado."]
+
+    with pytest.raises(RegraNegocioError):
+        svc.comentar(usuarios["usuario"], d, "   ")
+    with pytest.raises(RegraNegocioError):
+        svc.comentar(usuarios["usuario"], d, "x" * 4001)
+    with pytest.raises(PermissaoNegada):  # não vê a demanda
+        svc.comentar(usuarios["usuario2"], d, "Oi")
+
+    # Só o autor edita
+    with pytest.raises(PermissaoNegada):
+        svc.editar_comentario(usuarios["gerente"], d, c.id, "Outro texto")
+    assert svc.editar_comentario(usuarios["usuario"], d, c.id, "Retorno recebido.")
+    assert c.editado_em is not None
+    assert not svc.editar_comentario(usuarios["usuario"], d, c.id, "Retorno recebido.")
+
+    # O gestor também remove; a remoção é lógica
+    svc.remover_comentario(usuarios["gerente"], d, c.id)
+    assert c.removido_em is not None
+    assert len(d.comentarios_ativos) == 1
+    with pytest.raises(RegraNegocioError):
+        svc.editar_comentario(usuarios["usuario"], d, c.id, "De novo")
+
+
+def test_comenta_em_demanda_finalizada(usuarios, nova_demanda):
+    d = nova_demanda(usuarios["gerente"])
+    svc.cancelar(usuarios["gerente"], d, "Não é mais necessária.")
+    svc.comentar(usuarios["gerente"], d, "Registro após o cancelamento.")
+    assert len(d.comentarios_ativos) == 1

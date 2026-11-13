@@ -97,6 +97,56 @@
       </div>
     </div>
 
+    {% set comentarios = demanda.comentarios_ativos %}
+    <div class="card mb-3" id="comentarios">
+      <div class="card-header bg-white"><i class="bi bi-chat-left-text"></i> Comentários{% if comentarios %} <span class="badge bg-light text-dark">{{ comentarios|length }}</span>{% endif %}</div>
+      <ul class="list-group list-group-flush">
+        {% for c in comentarios %}
+        {% set autor = c.usuario_id == current_user.id %}
+        <li class="list-group-item">
+          <div class="d-flex gap-2">
+            {{ avatar(c.usuario) }}
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between flex-wrap">
+                <strong class="small">{{ c.usuario.nome }}</strong>
+                <span class="small text-muted">{{ c.criado_em|data_hora_br }}{% if c.editado_em %} · <span title="Editado em {{ c.editado_em|data_hora_br }}">editado</span>{% endif %}</span>
+              </div>
+              <div class="small texto-longo" id="comentario-texto-{{ c.id }}">{{ c.texto }}</div>
+              {% if autor %}
+              <form method="post" action="{{ url_for('demandas.editar_comentario', demanda_id=demanda.id, comentario_id=c.id) }}" class="d-none mt-2" id="comentario-form-{{ c.id }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <textarea name="texto" class="form-control form-control-sm" rows="3" maxlength="4000" required>{{ c.texto }}</textarea>
+                <div class="d-flex gap-2 justify-content-end mt-1">
+                  <button type="button" class="btn btn-sm btn-link" data-cancelar-comentario="{{ c.id }}">Cancelar</button>
+                  <button class="btn btn-sm btn-primary">Salvar</button>
+                </div>
+              </form>
+              {% endif %}
+              {% if autor or permissoes.eh_gestor(current_user.perfil) %}
+              <div class="d-flex gap-2 mt-1" id="comentario-acoes-{{ c.id }}">
+                {% if autor %}<button type="button" class="btn btn-sm btn-link p-0 small" data-editar-comentario="{{ c.id }}">Editar</button>{% endif %}
+                <form method="post" action="{{ url_for('demandas.remover_comentario', demanda_id=demanda.id, comentario_id=c.id) }}" onsubmit="return confirm('Remover este comentário?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-sm btn-link p-0 small text-danger">Remover</button>
+                </form>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </li>
+        {% else %}
+        <li class="list-group-item small text-muted">Nenhum comentário ainda.</li>
+        {% endfor %}
+      </ul>
+      <div class="card-body border-top">
+        <form method="post" action="{{ url_for('demandas.comentar', demanda_id=demanda.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <textarea name="texto" class="form-control" rows="2" maxlength="4000" required placeholder="Escreva um comentário..."></textarea>
+          <div class="text-end mt-2"><button class="btn btn-sm btn-primary"><i class="bi bi-send"></i> Comentar</button></div>
+        </form>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header bg-white"><i class="bi bi-clock-history"></i> Histórico</div>
       <ul class="list-group list-group-flush historico">
@@ -289,6 +339,14 @@ $(function () {
     $('#p-calculado').text(ok ? v[0] * v[1] * v[2] : '—');
   }
   $('.peso-gut').on('change', recalcular);
+
+  // Edição de comentário no próprio lugar
+  function alternarEdicao(id, editando) {
+    $('#comentario-form-' + id).toggleClass('d-none', !editando);
+    $('#comentario-texto-' + id + ', #comentario-acoes-' + id).toggleClass('d-none', editando);
+  }
+  $('[data-editar-comentario]').on('click', function () { alternarEdicao($(this).data('editar-comentario'), true); });
+  $('[data-cancelar-comentario]').on('click', function () { alternarEdicao($(this).data('cancelar-comentario'), false); });
 
   $('.select2-modal').each(function () {
     $(this).select2({ theme: 'bootstrap-5', language: 'pt-BR', dropdownParent: $(this).closest('.modal') });

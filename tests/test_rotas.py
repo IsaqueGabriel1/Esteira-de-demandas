@@ -363,3 +363,13 @@ def test_usuario_comum_nao_ve_contagem_de_tempo(client, login, usuarios, nova_de
     assert "Em execução há" in client.get(f"/demandas/{d.id}").get_data(as_text=True)
     lista = client.get("/demandas").get_data(as_text=True)
     assert ">Execução</th>" in lista and "(em curso)" in lista
+
+
+def test_comentario_pela_tela(client, login, usuarios, nova_demanda):
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
+    login(usuarios["usuario"])
+    resposta = client.post(f"/demandas/{d.id}/comentarios", data={"texto": "Dúvida <b>sobre</b> o prazo."})
+    assert resposta.status_code == 302
+    html = client.get(f"/demandas/{d.id}").get_data(as_text=True)
+    assert "Dúvida &lt;b&gt;sobre&lt;/b&gt; o prazo." in html
+    assert "bi-chat-left-text\"></i> 1" in client.get("/quadro").get_data(as_text=True)
