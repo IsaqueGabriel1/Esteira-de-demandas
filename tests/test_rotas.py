@@ -373,3 +373,59 @@ def test_comentario_pela_tela(client, login, usuarios, nova_demanda):
     html = client.get(f"/demandas/{d.id}").get_data(as_text=True)
     assert "Dúvida &lt;b&gt;sobre&lt;/b&gt; o prazo." in html
     assert "bi-chat-left-text\"></i> 1" in client.get("/quadro").get_data(as_text=True)
+
+
+def test_sino_marca_como_lido_ao_abrir_a_demanda(client, login, usuarios, nova_demanda):
+    from app.services import demanda_service
+
+    d = nova_demanda(usuarios["gerente"], atribuido_id=usuarios["usuario"].id)
+    demanda_service.comentar(usuarios["gerente"], d, "Pode priorizar?")
+    login(usuarios["usuario"])
+    assert "bi-bell-fill" in client.get("/quadro").get_data(as_text=True)
+    client.get(f"/demandas/{d.id}")
+    html = client.get("/quadro").get_data(as_text=True)
+    assert "bi-bell-fill" not in html and "Nenhum comentário novo" in html
+
+
+def test_login_registra_sucesso_e_erro(client, login, usuarios):
+    from app.models import TentativaLogin
+
+    client.post("/login", data={"email": usuarios["chefe"].email, "senha": "errada"})
+    client.post("/login", data={"email": "ninguem@teste.gov.br", "senha": "errada"})
+    login(usuarios["chefe"])
+
+    tentativas = TentativaLogin.query.order_by(TentativaLogin.id).all()
+    assert [(t.sucesso, t.usuario_id) for t in tentativas] == [
+        (False, usuarios["chefe"].id),
+        (False, None),
+        (True, usuarios["chefe"].id),
+    ]
+
+
+def test_registra_paginas_abertas(client, login, usuarios):
+    from app.models import AcessoPagina
+
+    client.get("/quadro")  # sem login: não registra
+    login(usuarios["chefe"])
+    client.get("/quadro")
+    client.get("/quadro")  # recarregar não conta de novo
+    client.get("/demandas")
+
+    assert AcessoPagina.query.filter_by(endpoint="demandas.quadro").count() == 1
+    endpoints = [a.endpoint for a in AcessoPagina.query.order_by(AcessoPagina.id)]
+    assert "demandas.quadro" in endpoints and "demandas.lista" in endpoints
+    assert all(a.usuario_id == usuarios["chefe"].id for a in AcessoPagina.query)
+
+
+def test_tela_de_uso_so_para_o_administrador(app, db, client, login, usuarios):
+    login(usuarios["gerente"])
+    assert client.get("/uso/").status_code == 403
+    assert b"/uso/" not in client.get("/quadro").data
+    client.post("/logout")
+
+    client.post("/login", data={"email": "intruso@teste.gov.br", "senha": "errada"})
+    login(_criar_admin(app, db))
+    resposta = client.get("/uso/?periodo=7")
+    assert resposta.status_code == 200
+    assert b"intruso@teste.gov.br" in resposta.data
+    assert "Quadro".encode() in resposta.data  # página mais acessada

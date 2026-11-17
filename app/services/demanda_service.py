@@ -7,10 +7,10 @@ estas funções e tratam RegraNegocioError.
 """
 from datetime import date, timedelta
 
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 
 from ..extensions import db
-from ..models import ComentarioDemanda, Demanda, Eixo, HistoricoDemanda, TipoEvento, Usuario, demanda_apoio
+from ..models import ComentarioDemanda, Demanda, Eixo, HistoricoDemanda, LeituraComentarios, TipoEvento, Usuario, demanda_apoio
 from ..models.base import agora
 from . import divisao_service, gut, permissoes
 from .erros import PermissaoNegada, RegraNegocioError
@@ -20,6 +20,8 @@ from .fluxo import Acao, Status, acao_por_arraste, proximo_status, transicao_per
 TAMANHO_MINIMO_JUSTIFICATIVA = 10
 TAMANHO_MAXIMO_PASTA_REDE = 500
 TAMANHO_MAXIMO_COMENTARIO = 4000
+# Quantos dias antes do prazo a demanda aparece no sino como "vence em breve"
+DIAS_AVISO_PRAZO = 3
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +230,46 @@ def remover_comentario(usuario, demanda, comentario_id):
         raise PermissaoNegada("Somente o autor ou um gestor pode remover o comentário.")
     comentario.removido_em = agora()
     _registrar(demanda, usuario, TipoEvento.COMENTARIO, f"Removeu um comentário de {comentario.usuario.nome}.")
+    db.session.commit()
+
+
+def comentarios_nao_lidos(usuario):
+    """[(demanda, quantidade)] com comentários de outras pessoas ainda não lidos, nas demandas
+    em que o usuário é responsável ou apoio. As mais recentes primeiro."""
+    leitura = and_(LeituraComentarios.demanda_id == Demanda.id, LeituraComentarios.usuario_id == usuario.id)
+    return (
+        db.session.query(Demanda, func.count(ComentarioDemanda.id))
+        .join(ComentarioDemanda, ComentarioDemanda.demanda_id == Demanda.id)
+        .outerjoin(LeituraComentarios, leitura)
+        .filter(or_(Demanda.atribuido_id == usuario.id, Demanda.apoios.any(Usuario.id == usuario.id)))
+        .filter(ComentarioDemanda.usuario_id != usuario.id, ComentarioDemanda.removido_em.is_(None))
+        .filter(or_(LeituraComentarios.lido_em.is_(None), ComentarioDemanda.criado_em > LeituraComentarios.lido_em))
+        .group_by(Demanda.id)
+        .order_by(func.max(ComentarioDemanda.criado_em).desc())
+        .all()
+    )
+
+
+def proximas_a_vencer(usuario):
+    """Demandas em aberto do usuário (responsável ou apoio) cujo prazo vence de hoje até
+    DIAS_AVISO_PRAZO dias. As que vencem primeiro vêm antes."""
+    hoje = date.today()
+    return (
+        Demanda.query
+        .filter(or_(Demanda.atribuido_id == usuario.id, Demanda.apoios.any(Usuario.id == usuario.id)))
+        .filter(Demanda.status.notin_(tuple(Status.FINAIS)))
+        .filter(_prazo_final().between(hoje, hoje + timedelta(days=DIAS_AVISO_PRAZO)))
+        .order_by(_prazo_final(), Demanda.id)
+        .all()
+    )
+
+
+def marcar_comentarios_lidos(usuario, demanda):
+    leitura = LeituraComentarios.query.filter_by(usuario_id=usuario.id, demanda_id=demanda.id).first()
+    if leitura is None:
+        db.session.add(LeituraComentarios(usuario_id=usuario.id, demanda_id=demanda.id))
+    else:
+        leitura.lido_em = agora()
     db.session.commit()
 
 

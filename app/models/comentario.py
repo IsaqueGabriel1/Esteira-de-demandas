@@ -19,3 +19,17 @@ class ComentarioDemanda(db.Model):
 
     demanda = db.relationship("Demanda", back_populates="comentarios")
     usuario = db.relationship("Usuario")
+
+
+class LeituraComentarios(db.Model):
+    """Até quando o usuário já leu os comentários de uma demanda (alimenta o sino da navbar)."""
+
+    __tablename__ = "leituras_comentarios"
+    __table_args__ = (db.UniqueConstraint("usuario_id", "demanda_id"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False)
+    demanda_id = db.Column(
+        db.Integer, db.ForeignKey("demandas.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    lido_em = db.Column(db.DateTime, nullable=False, default=agora)

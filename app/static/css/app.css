@@ -97,3 +97,6 @@ a { color: var(--cor-primaria); }
 
 /* Select2 dentro de formulários Bootstrap */
 .select2-container { width: 100% !important; }
+
+/* Sino de comentários novos na navbar */
+.notificacoes { width: 320px; max-height: 420px; overflow-y: auto; }
