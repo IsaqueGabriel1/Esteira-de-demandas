@@ -10,6 +10,7 @@ def registrar_blueprints(app):
     from .divisoes import bp as divisoes_bp
     from .indicadores import bp as indicadores_bp
     from .permissoes import bp as permissoes_bp
+    from .uso import bp as uso_bp
     from .usuarios import bp as usuarios_bp
 
     app.register_blueprint(auth_bp)
@@ -18,6 +19,23 @@ def registrar_blueprints(app):
     app.register_blueprint(divisoes_bp)
     app.register_blueprint(indicadores_bp)
     app.register_blueprint(permissoes_bp)
+    app.register_blueprint(uso_bp)
+
+    @app.after_request
+    def registrar_acesso(resposta):
+        from flask_login import current_user
+
+        if (
+            request.method == "GET"
+            and resposta.status_code == 200
+            and request.endpoint
+            and request.endpoint != "static"
+            and current_user.is_authenticated
+        ):
+            from ..services import uso_service
+
+            uso_service.registrar_acesso(current_user, request.endpoint, request.path)
+        return resposta
 
     @app.before_request
     def carregar_permissoes():

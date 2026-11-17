@@ -4,7 +4,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from ..forms import CadastroForm, LoginForm, MinhaDivisaoForm, TrocarSenhaForm
-from ..services import usuario_service
+from ..services import uso_service, usuario_service
 from ..services.erros import RegraNegocioError
 
 bp = Blueprint("auth", __name__)
@@ -41,6 +41,7 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         usuario = usuario_service.autenticar(form.email.data, form.senha.data)
+        uso_service.registrar_login(form.email.data, usuario, sucesso=bool(usuario), ip=request.remote_addr)
         if usuario:
             login_user(usuario, remember=form.lembrar.data)
             return redirect(_destino_seguro(request.args.get("next")) or url_for("demandas.quadro"))

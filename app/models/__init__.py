@@ -6,5 +6,6 @@ from .eixo import Eixo
 from .historico import HistoricoDemanda, TipoEvento
 from .permissao import HistoricoPermissao, PermissaoPerfil
 from .usuario import Usuario
+from .uso import AcessoPagina, TentativaLogin
 
-__all__ = ["ComentarioDemanda", "Demanda", "demanda_apoio", "Divisao", "Eixo", "HistoricoDemanda", "LeituraComentarios", "TipoEvento", "HistoricoPermissao", "PermissaoPerfil", "Usuario"]
+__all__ = ["AcessoPagina", "ComentarioDemanda", "Demanda", "demanda_apoio", "Divisao", "Eixo", "HistoricoDemanda", "LeituraComentarios", "TipoEvento", "HistoricoPermissao", "PermissaoPerfil", "TentativaLogin", "Usuario"]
